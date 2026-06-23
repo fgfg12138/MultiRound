@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('discuss:run', roundTable),
   discussStop: (roundTableId: string) =>
     ipcRenderer.invoke('discuss:stop', roundTableId),
+  discussUserHostInput: (roundTableId: string, content: string) =>
+    ipcRenderer.invoke('discuss:user-host-input', roundTableId, content),
 
   // Provider CRUD
   providersList: () => ipcRenderer.invoke('providers:list'),
@@ -88,6 +90,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event: any, err: any) => callback(err);
     ipcRenderer.on('discuss:error', handler);
     return () => ipcRenderer.removeListener('discuss:error', handler);
+  },
+  onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number }) => void) => {
+    const handler = (_event: any, info: any) => callback(info);
+    ipcRenderer.on('discuss:awaiting-host-input', handler);
+    return () => ipcRenderer.removeListener('discuss:awaiting-host-input', handler);
   },
 
   // Generic storage

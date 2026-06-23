@@ -17,6 +17,7 @@ export interface ElectronAPI {
   ) => Promise<{ content?: string; error?: string; code?: string }>;
   discussRun: (roundTable: any) => Promise<{ ok: boolean }>;
   discussStop: (roundTableId: string) => Promise<{ ok: boolean }>;
+  discussUserHostInput: (roundTableId: string, content: string) => Promise<{ ok: boolean }>;
 
   // Provider CRUD
   providersList: () => Promise<ProviderConfig[]>;
@@ -55,6 +56,7 @@ export interface ElectronAPI {
   onDiscussCharacterStart: (callback: (name: string) => void) => () => void;
   onDiscussComplete: (callback: (result: any) => void) => () => void;
   onDiscussError: (callback: (err: any) => void) => () => void;
+  onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number }) => void) => () => void;
 
   // Generic storage
   storageGet: (key: string) => Promise<unknown>;

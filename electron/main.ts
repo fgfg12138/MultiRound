@@ -5,7 +5,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import Store from 'electron-store';
 import { callProviderLLM, testProviderConnection, encryptProvider, decryptProvider, maskProviderForUI, ProviderConfig, StoredProviderConfig } from './providers.js';
-import { startDiscussion, stopDiscussion } from './discussion-runner.js';
+import { startDiscussion, stopDiscussion, injectUserHostInput } from './discussion-runner.js';
 import { getDataDir, ensureDir, atomicWriteJson, loadIndex, saveIndex } from './data-store.js';
 
 interface Schema {
@@ -853,6 +853,11 @@ ipcMain.handle('discuss:run', async (_event, roundTable: any) => {
 ipcMain.handle('discuss:stop', async (_event, roundTableId: string) => {
   stopDiscussion(roundTableId);
   return { ok: true };
+});
+
+ipcMain.handle('discuss:user-host-input', async (_event, roundTableId: string, content: string) => {
+  const ok = injectUserHostInput(roundTableId, content);
+  return { ok };
 });
 
 

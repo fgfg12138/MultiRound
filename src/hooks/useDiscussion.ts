@@ -5,7 +5,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Message, RoundTable } from '@/lib/types';
 import { generateId } from '@/lib/types';
-import { saveMessages } from '@/lib/storage';
+import { saveRoundTable, saveMessages } from '@/lib/storage';
 import { buildCharacterSpeechPrompt, buildSystemPrompt } from '@/lib/prompts';
 
 export type GenerateStatus = 'idle' | 'generating' | 'stopping' | 'error';
@@ -96,7 +96,12 @@ export function useDiscussion() {
       });
       cleanup.push(unsubChar);
 
-      const unsubComplete = window.electronAPI.onDiscussComplete(() => {
+      const unsubComplete = window.electronAPI.onDiscussComplete(async (result: any) => {
+        if (roundTableRef.current) {
+          roundTableRef.current.status = 'completed';
+          await saveRoundTable(roundTableRef.current);
+          await saveMessages(roundTableRef.current.id, result.messages || messagesRef.current);
+        }
         setIsComplete(true);
         setGenerateStatus('idle');
         setIsRunning(false);
@@ -106,7 +111,10 @@ export function useDiscussion() {
       });
       cleanup.push(unsubComplete);
 
-      const unsubError = window.electronAPI.onDiscussError((err: any) => {
+      const unsubError = window.electronAPI.onDiscussError(async (err: any) => {
+        if (roundTableRef.current) {
+          await saveMessages(roundTableRef.current.id, messagesRef.current);
+        }
         setError(err.error || '讨论生成失败');
         setGenerateStatus('error');
         setIsRunning(false);

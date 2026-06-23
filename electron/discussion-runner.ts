@@ -185,6 +185,13 @@ function buildResultPrompt(rt: InlineRoundTable, all: InlineMessage[]): string {
 const store = new Store();
 const PROVIDER_PREFIX = 'provider:';
 const sessions = new Map<string, AbortController>();
+const pendingHostInputs = new Map<string, (content: string) => void>();
+
+export function injectUserHostInput(roundTableId: string, content: string): boolean {
+  const resolve = pendingHostInputs.get(roundTableId);
+  if (resolve) { resolve(content); pendingHostInputs.delete(roundTableId); return true; }
+  return false;
+}
 
 function genId(): string { return crypto.randomUUID(); }
 
@@ -251,7 +258,7 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
 
   try {
     if (sig?.aborted) throw new Error('生成已中止');
-    if (!invisible) {
+    if (!invisible && rt.host?.mode !== 'user') {
       send('discuss:character-start', rt.host.name);
       const r = await tryCall(rt.host.name, sys, buildHostOpen(rt));
       const m = buildMsg(rt.id, 1, 'host', rt.host.name, 'opening', r.content || `（主持人开场失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
@@ -272,18 +279,29 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
       }
       if (round < cap) {
         if (sig?.aborted) throw new Error('生成已中止');
-        if (!invisible) {
+        if (rt.host?.mode === 'user') {
+          // User host mode: wait for user input
+          send('discuss:awaiting-host-input', { roundTableId: rt.id, round });
+          const userInput = await new Promise<string>((resolve) => {
+            pendingHostInputs.set(rt.id, resolve);
+          });
+          if (sig?.aborted) throw new Error('生成已中止');
+          const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', userInput);
+          all.push(m); send('discuss:message', m);
+        } else if (!invisible) {
+          // AI visible host
           send('discuss:character-start', rt.host.name);
           const r = await tryCall(rt.host.name, sys, buildHostSum(rt, round, all));
           const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content || `（小结生成失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
           all.push(m); send('discuss:message', m);
         }
+        // invisible: no summary generated
       }
       round++;
     }
 
     if (sig?.aborted) throw new Error('生成已中止');
-    if (!invisible) {
+    if (!invisible && rt.host?.mode !== 'user') {
       send('discuss:character-start', rt.host.name);
       const r = await tryCall(rt.host.name, sys, buildHostFinal(rt, all));
       const m = buildMsg(rt.id, round - 1, 'host', rt.host.name, 'final_summary', r.content || `（总结生成失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
