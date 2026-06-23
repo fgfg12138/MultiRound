@@ -741,17 +741,27 @@ ipcMain.handle('data:open-directory', async () => {
 
 // ===== File Dialog =====
 
+const MAX_MD_SIZE = 2 * 1024 * 1024; // 2MB
+
 ipcMain.handle('dialog:open-markdown', async () => {
-  const result = await dialog.showOpenDialog({
-    properties: ['openFile'],
-    filters: [{ name: 'Markdown', extensions: ['md'] }],
-  });
-  if (result.canceled || result.filePaths.length === 0) return null;
   try {
-    const content = fs.readFileSync(result.filePaths[0], 'utf-8');
-    return { path: result.filePaths[0], content };
-  } catch {
-    return null;
+    const result = await dialog.showOpenDialog({
+      title: '选择 Markdown 文件',
+      properties: ['openFile'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const filePath = result.filePaths[0];
+    const stat = fs.statSync(filePath);
+    if (stat.size > MAX_MD_SIZE) {
+      return { ok: false, error: `文件过大（${(stat.size / 1024 / 1024).toFixed(1)}MB），限制 2MB` };
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return { ok: true, path: filePath, filename: path.basename(filePath), content };
+  } catch (err: any) {
+    return { ok: false, error: err.message || '读取文件失败' };
   }
 });
 

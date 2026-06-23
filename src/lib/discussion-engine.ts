@@ -1,3 +1,6 @@
+// ⚠️ DEPRECATED — 实际运行引擎已迁移至 electron/discussion-runner.ts
+// 本文件不再被任何运行路径引用，保留仅作参考。请勿修改。
+// 如需修改讨论逻辑，请改 electron/discussion-runner.ts
 // ===== AI 圆桌模拟器 — Discussion Engine =====
 // Phase 13+14: V2 prompt 注入 + 隐性主持人 + 结构化结果
 
