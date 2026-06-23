@@ -112,7 +112,7 @@ export interface RoundTable {
   runtimeControl?: RuntimeControl;
 
   // 不变
-  status: 'created' | 'discussing' | 'completed';
+  status: 'created' | 'discussing' | 'completed' | 'stopped';
   createdAt: number;
 }
 

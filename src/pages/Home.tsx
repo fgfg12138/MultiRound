@@ -230,7 +230,7 @@ export default function Home() {
                 onClick={() => navigate(`/result/${rt.id}`)}
                 className="w-full text-left p-4 pb-2"
               >
-                <h3 className="font-medium text-gray-900 text-sm truncate">{rt.topic}</h3>
+                <h3 className="font-medium text-gray-900 text-sm truncate" title={rt.topic}>{rt.topic}</h3>
                 <p className="text-xs text-gray-400 mt-1">
                   {(rt.characters || []).length} 个角色 · {rt.totalRounds || 3} 轮 ·{' '}
                   {new Date(rt.createdAt || Date.now()).toLocaleDateString('zh-CN')}

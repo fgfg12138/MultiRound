@@ -33,6 +33,8 @@ export default function Settings() {
   const [formModel, setFormModel] = useState('');
   const [formSaving, setFormSaving] = useState(false);
   const [showPresetMenu, setShowPresetMenu] = useState(false);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
 
   useEffect(() => {
     loadProviders();
@@ -262,37 +264,41 @@ export default function Settings() {
                   <span className="text-gray-300 ml-1 cursor-help" title="填写 Base URL 后可点击「获取模型」自动拉取">ⓘ</span>
                 </label>
                 <div className="flex gap-2">
-                  <input type="text" value={formModel} onChange={(e) => setFormModel(e.target.value)}
-                    placeholder="deepseek-chat"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" />
-                  <button
-                    type="button"
+                  <div className="relative flex-1">
+                    <input type="text" value={formModel} onChange={(e) => { setFormModel(e.target.value); setShowModelDropdown(false); }}
+                      placeholder="如：deepseek-chat"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" />
+                    {showModelDropdown && fetchedModels.length > 0 && (
+                      <div className="absolute top-full mt-1 left-0 w-full bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-48 overflow-y-auto">
+                        {fetchedModels.map(m => (
+                          <button key={m} type="button"
+                            onClick={() => { setFormModel(m); setShowModelDropdown(false); }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-purple-50 transition-colors ${formModel === m ? 'bg-purple-50 text-purple-700 font-medium' : 'text-gray-700'}`}
+                          >{m}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button"
                     onClick={async () => {
                       if (!formBaseUrl.trim()) { showToast({ type: 'warning', message: '请先填写 Base URL' }); return; }
                       setFormSaving(true);
                       try {
-                        if (!window.electronAPI?.providersFetchModels) {
-                          showToast({ type: 'error', message: '此功能仅在 Electron 桌面应用中可用' });
-                          return;
-                        }
+                        if (!window.electronAPI?.providersFetchModels) { showToast({ type: 'error', message: '此功能仅在 Electron 桌面应用中可用' }); return; }
                         const result = await window.electronAPI.providersFetchModels({ baseUrl: formBaseUrl.trim(), apiKey: formApiKey.trim() });
                         if (result.ok && result.models?.length) {
-                          setFormModel(result.models[0]);
-                          showToast({ type: 'success', message: `找到 ${result.models.length} 个模型，已填入第一个` });
+                          setFetchedModels(result.models);
+                          setShowModelDropdown(true);
+                          showToast({ type: 'success', message: `找到 ${result.models.length} 个模型，请在下方选择` });
                         } else {
                           showToast({ type: 'error', message: result.error || '获取失败，请手动输入模型名' });
                         }
                       } catch (err: any) {
-                        showToast({ type: 'error', message: err?.message || '获取模型列表失败' });
-                      } finally {
-                        setFormSaving(false);
-                      }
+                        showToast({ type: 'error', message: err?.message || '获取失败' });
+                      } finally { setFormSaving(false); }
                     }}
                     disabled={formSaving}
-                    className="shrink-0 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    获取模型
-                  </button>
+                    className="shrink-0 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap">获取模型</button>
                 </div>
               </div>
             </div>

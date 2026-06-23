@@ -30,6 +30,7 @@ export function useDiscussion() {
   const messagesRef = useRef<Message[]>([]);
   const roundTableRef = useRef<RoundTable | null>(null);
   const cleanupRef = useRef<(() => void)[]>([]);
+  const stoppedByUserRef = useRef(false);
 
   // Keep messagesRef in sync
   messagesRef.current = messages;
@@ -81,6 +82,7 @@ export function useDiscussion() {
       setIsComplete(false);
       setCurrentCharacter(null);
       setFailedCharacters([]);
+      stoppedByUserRef.current = false;
       roundTableRef.current = roundTable;
 
       // Set up event listeners
@@ -98,7 +100,7 @@ export function useDiscussion() {
 
       const unsubComplete = window.electronAPI.onDiscussComplete(async (result: any) => {
         if (roundTableRef.current) {
-          roundTableRef.current.status = 'completed';
+          roundTableRef.current.status = stoppedByUserRef.current ? 'stopped' : 'completed';
           await saveRoundTable(roundTableRef.current);
           await saveMessages(roundTableRef.current.id, result.messages || messagesRef.current);
         }
@@ -143,6 +145,7 @@ export function useDiscussion() {
 
   const stop = useCallback(() => {
     if (roundTableRef.current) {
+      stoppedByUserRef.current = true;
       setGenerateStatus('stopping');
       window.electronAPI.discussStop(roundTableRef.current.id);
       setIsRunning(false);
@@ -247,6 +250,7 @@ export function useDiscussion() {
     currentCharacter,
     failedCharacters,
     generateStatus,
+    stoppedByUser: stoppedByUserRef,
     startDiscussion,
     stop,
     retryCharacter,

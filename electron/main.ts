@@ -135,6 +135,7 @@ function createWindow() {
     icon: path.join(__dirname, '../public/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
     },

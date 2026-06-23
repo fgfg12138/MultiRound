@@ -40,6 +40,7 @@ export default function Discussion() {
     messages, isRunning, error, currentRound, isComplete,
     currentCharacter, failedCharacters, generateStatus,
     startDiscussion, stop, retryCharacter, reset,
+    stoppedByUser,
   } = useDiscussion();
   const { showToast } = useToast();
 
@@ -59,7 +60,7 @@ export default function Discussion() {
   }, [messages, currentCharacter]);
 
   useEffect(() => {
-    if (isComplete && id) {
+    if (isComplete && id && !stoppedByUser.current) {
       setTimeout(() => navigate(`/result/${id}`), 2000);
     }
   }, [isComplete, id, navigate]);
