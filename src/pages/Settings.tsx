@@ -276,11 +276,32 @@ export default function Settings() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">
                   模型名称
-                  <span className="text-gray-300 ml-1 cursor-help" title="模型名称由厂商决定，如 deepseek-chat、gpt-4o、glm-4 等">ⓘ</span>
+                  <span className="text-gray-300 ml-1 cursor-help" title="填写 Base URL 后可点击「获取模型」自动拉取">ⓘ</span>
                 </label>
-                <input type="text" value={formModel} onChange={(e) => setFormModel(e.target.value)}
-                  placeholder="deepseek-chat"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" />
+                <div className="flex gap-2">
+                  <input type="text" value={formModel} onChange={(e) => setFormModel(e.target.value)}
+                    placeholder="deepseek-chat"
+                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!formBaseUrl.trim()) { showToast({ type: 'warning', message: '请先填写 Base URL' }); return; }
+                      setFormSaving(true);
+                      const result = await window.electronAPI.providersFetchModels({ baseUrl: formBaseUrl.trim(), apiKey: formApiKey.trim() });
+                      setFormSaving(false);
+                      if (result.ok && result.models?.length) {
+                        setFormModel(result.models[0]);
+                        showToast({ type: 'success', message: `找到 ${result.models.length} 个模型，已填入第一个` });
+                      } else {
+                        showToast({ type: 'error', message: result.error || '获取失败' });
+                      }
+                    }}
+                    disabled={formSaving}
+                    className="shrink-0 px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    获取模型
+                  </button>
+                </div>
               </div>
             </div>
 

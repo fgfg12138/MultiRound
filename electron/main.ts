@@ -289,10 +289,12 @@ ipcMain.handle('providers:reveal-key', async (_event, providerId: string) => {
 // ===== Fetch Models =====
 ipcMain.handle('providers:fetch-models', async (_event, config: { baseUrl: string; apiKey: string }) => {
   try {
-    const res = await fetch(`${config.baseUrl}/models`, {
-      headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
-    });
-    if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (config.apiKey) headers['Authorization'] = `Bearer ${config.apiKey}`;
+
+    const res = await fetch(`${config.baseUrl.replace(/\/+$/, '')}/models`, { headers });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
+
     const json = await res.json();
     const models: string[] = (json.data || []).map((m: any) => m.id).sort();
     return { ok: true, models };
