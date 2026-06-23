@@ -1,7 +1,7 @@
 // ===== AI 圆桌模拟器 — Electron Preload Script =====
 
 import { contextBridge, ipcRenderer } from 'electron';
-import type { ProviderConfig } from './providers';
+import type { ProviderConfig } from './providers.js';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // LLM discussion (with per-character provider)

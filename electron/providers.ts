@@ -1,6 +1,6 @@
 // ===== AI 圆桌模拟器 — LLM Provider API Bridge (Main Process) =====
 
-import { encryptKey, decryptKey, maskKey } from './crypto';
+import { encryptKey, decryptKey, maskKey } from './crypto.js';
 
 export interface ProviderConfig {
   id: string;

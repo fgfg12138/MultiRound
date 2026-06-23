@@ -4,7 +4,7 @@ import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions, dialog, 
 import path from 'node:path';
 import fs from 'node:fs';
 import Store from 'electron-store';
-import { callProviderLLM, testProviderConnection, encryptProvider, decryptProvider, maskProviderForUI, ProviderConfig, StoredProviderConfig } from './providers';
+import { callProviderLLM, testProviderConnection, encryptProvider, decryptProvider, maskProviderForUI, ProviderConfig, StoredProviderConfig } from './providers.js';
 
 interface Schema {
   [key: string]: unknown;
@@ -339,6 +339,20 @@ function atomicWriteJson(filePath: string, data: unknown): void {
 function cleanTmp(dataDir: string, filename: string): void {
   try { fs.unlinkSync(path.join(dataDir, `${filename}.json.tmp`)); } catch { /* ignore */ }
   try { fs.unlinkSync(path.join(dataDir, `${filename}_messages.json.tmp`)); } catch { /* ignore */ }
+  try { fs.unlinkSync(path.join(dataDir, `${filename}.backup-v1.json`)); } catch { /* ignore */ }
+}
+
+/** Create a backup copy of a V1 file before migrating it to V2.
+ *  Only creates the backup once — skips if the backup already exists.
+ */
+function backupBeforeMigrate(dataDir: string, filename: string): void {
+  const srcPath = path.join(dataDir, `${filename}.json`);
+  const backupPath = path.join(dataDir, `${filename}.backup-v1.json`);
+  if (fs.existsSync(srcPath) && !fs.existsSync(backupPath)) {
+    try {
+      fs.copyFileSync(srcPath, backupPath);
+    } catch { /* ignore — migration continues without backup */ }
+  }
 }
 
 /** Load the index file that maps roundtable UUIDs → human-readable filenames */
@@ -409,6 +423,77 @@ function generateFilename(dataDir: string, topic: string, createdAt: number): st
   return filename;
 }
 
+// ===== Schema Migration =====
+
+const CURRENT_SCHEMA_VERSION = 2;
+
+function detectVersion(data: any): number {
+  return data?.schemaVersion ?? 0;
+}
+
+function synthesizePersona(c: any): string {
+  const parts: string[] = [];
+  if (c.role) parts.push(`身份：${c.role}`);
+  if (c.stance) parts.push(`立场：${c.stance}`);
+  if (c.style) parts.push(`风格：${c.style}`);
+  return parts.join('；') || c.name || '';
+}
+
+function migrateV1toV2(data: any): any {
+  const topic = data.topic || '';
+  const totalRounds = data.totalRounds || 3;
+
+  return {
+    id: data.id,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    topic,
+    totalRounds,
+    scenario: { title: topic, description: topic },
+    host: {
+      name: data.host?.name || '主持人',
+      style: data.host?.style || '中立',
+      mode: 'visible',
+    },
+    characters: (data.characters || []).map((c: any) => ({
+      id: c.id,
+      name: c.name || '',
+      role: c.role || '',
+      persona: c.persona || synthesizePersona(c),
+      providerId: c.providerId || 'default',
+      stance: c.stance,
+      style: c.style,
+      motivation: c.motivation,
+      expertise: c.expertise,
+      relationship: c.relationship,
+      constraints: c.constraints,
+      teamId: c.teamId,
+    })),
+    rules: {
+      roundCount: totalRounds,
+      speakOrder: 'sequential',
+      maxSpeechLength: 300,
+      requireResponse: false,
+      allowConsecutiveSpeech: false,
+      scoringEnabled: false,
+    },
+    goal: { type: 'custom', description: topic },
+    status: data.status || 'created',
+    createdAt: data.createdAt || Date.now(),
+    // Pass through optional fields
+    teams: data.teams,
+    result: data.result,
+    runtimeControl: data.runtimeControl,
+  };
+}
+
+function normalizeToV2(data: any): any {
+  if (!data || typeof data !== 'object') {
+    return migrateV1toV2({ id: data?.id || 'corrupt', createdAt: Date.now() });
+  }
+  if ((data.schemaVersion ?? 0) >= 2) return data; // already V2
+  return migrateV1toV2(data);
+}
+
 // ===== Data IPC Handlers =====
 
 ipcMain.handle('data:get-path', async () => getDataDir());
@@ -417,19 +502,27 @@ ipcMain.handle('data:save-roundtable', async (_event, rt: any) => {
   const dataDir = getDataDir();
   ensureDir(dataDir);
 
+  // Normalize to V2 in memory
+  const v2 = normalizeToV2(rt);
+
   // Load index
   const index = loadIndex(dataDir);
-  let filename = index[rt.id];
+  let filename = index[v2.id];
+
+  // If this was V1 data, create backup before overwriting
+  if (filename && detectVersion(rt) < 2) {
+    backupBeforeMigrate(dataDir, filename);
+  }
 
   // Generate new filename if this is a new roundtable
   if (!filename) {
-    filename = generateFilename(dataDir, rt.topic, rt.createdAt);
-    index[rt.id] = filename;
+    filename = generateFilename(dataDir, v2.scenario?.title || v2.topic, v2.createdAt);
+    index[v2.id] = filename;
     saveIndex(dataDir, index);
   }
 
   // Atomically write metadata file
-  atomicWriteJson(path.join(dataDir, `${filename}.json`), rt);
+  atomicWriteJson(path.join(dataDir, `${filename}.json`), v2);
 
   return { ok: true, filename };
 });
@@ -463,7 +556,8 @@ ipcMain.handle('data:load-roundtable', async (_event, id: string) => {
   }
 
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    return normalizeToV2(raw);
   } catch {
     return null;
   }
@@ -502,7 +596,7 @@ ipcMain.handle('data:list-roundtables', async () => {
     if (fs.existsSync(filePath)) {
       try {
         const rt = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-        tables.push(rt);
+        tables.push(normalizeToV2(rt));
       } catch {
         // skip corrupt file
       }
@@ -531,15 +625,23 @@ ipcMain.handle('data:delete-roundtable', async (_event, id: string) => {
 });
 
 ipcMain.handle('data:delete-all-roundtables', async (_event, id?: string) => {
-  if (id) {
-    // Single delete via the main delete handler (reuse logic)
-    return ipcMain.emit('data:delete-roundtable', null, id);
-  }
-
-  // Delete ALL roundtables
   const dataDir = getDataDir();
   const index = loadIndex(dataDir);
 
+  if (id) {
+    // Single delete — inline the logic (ipcMain.emit cannot invoke .handle)
+    const filename = index[id];
+    if (filename) {
+      try { fs.unlinkSync(path.join(dataDir, `${filename}.json`)); } catch {}
+      try { fs.unlinkSync(path.join(dataDir, `${filename}_messages.json`)); } catch {}
+      cleanTmp(dataDir, filename);
+      delete index[id];
+      saveIndex(dataDir, index);
+    }
+    return { ok: true };
+  }
+
+  // Delete ALL roundtables
   for (const filename of Object.values(index)) {
     try { fs.unlinkSync(path.join(dataDir, `${filename}.json`)); } catch {}
     try { fs.unlinkSync(path.join(dataDir, `${filename}_messages.json`)); } catch {}
@@ -571,6 +673,7 @@ ipcMain.handle('data:export-roundtable', async (_event, id: string) => {
   let rt: any;
   try {
     rt = JSON.parse(fs.readFileSync(actualRtPath, 'utf-8'));
+    rt = normalizeToV2(rt);  // normalize to ensure V2 fields
   } catch {
     return { error: '数据文件损坏' };
   }
@@ -652,11 +755,12 @@ ipcMain.handle('data:repair-index', async () => {
     const entryPath = path.join(dataDir, entry);
     try {
       const content = JSON.parse(fs.readFileSync(entryPath, 'utf-8'));
-      if (content && content.id && typeof content.id === 'string') {
+      const v2 = normalizeToV2(content);
+      if (v2 && v2.id) {
         // Check if filename already ends with .json
         const baseName = entry.replace(/\.json$/, '');
-        if (!index[content.id]) {
-          index[content.id] = baseName;
+        if (!index[v2.id]) {
+          index[v2.id] = baseName;
           repaired++;
           indexedFiles.add(entry);
         }
@@ -700,7 +804,7 @@ ipcMain.handle('roundtables:search', async (_event, query: string) => {
         try {
           const rt = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
           if (!query || rt.topic?.toLowerCase().includes(query.toLowerCase())) {
-            results.push(rt);
+            results.push(normalizeToV2(rt));
           }
         } catch { /* skip */ }
       }
@@ -747,7 +851,7 @@ ipcMain.handle('roundtables:export', async (_event, id: string) => {
   if (!fs.existsSync(rtPath)) return { error: '数据文件丢失' };
 
   let rt: any;
-  try { rt = JSON.parse(fs.readFileSync(rtPath, 'utf-8')); } catch { return { error: '数据文件损坏' }; }
+  try { rt = JSON.parse(fs.readFileSync(rtPath, 'utf-8')); rt = normalizeToV2(rt); } catch { return { error: '数据文件损坏' }; }
 
   const msgs: any[] = fs.existsSync(msgsPath)
     ? (() => { try { return JSON.parse(fs.readFileSync(msgsPath, 'utf-8')); } catch { return []; } })()

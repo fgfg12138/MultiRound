@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Character, RoundTable } from '@/lib/types';
 import type { ProviderConfig } from '@/types/electron.d';
-import { generateId } from '@/lib/types';
+import { generateId, CURRENT_SCHEMA_VERSION } from '@/lib/types';
 import { saveRoundTable } from '@/lib/storage';
 import { listProviders } from '@/lib/settings-store';
 import { useToast } from '@/components/Toast';
@@ -37,6 +37,7 @@ export default function Create() {
           role: '技术负责人',
           stance: '关注实现难度、成本和技术风险',
           style: '冷静、直接、偏现实',
+          persona: '身份：技术负责人；立场：关注实现难度、成本和技术风险；风格：冷静、直接、偏现实',
           providerId: defaultProviderId,
         },
         {
@@ -45,6 +46,7 @@ export default function Create() {
           role: '普通用户',
           stance: '关注产品是否真的好用',
           style: '直白、具体、不讲空话',
+          persona: '身份：普通用户；立场：关注产品是否真的好用；风格：直白、具体、不讲空话',
           providerId: defaultProviderId,
         },
         {
@@ -53,6 +55,7 @@ export default function Create() {
           role: '市场总监',
           stance: '关注市场竞争和商业价值',
           style: '热情、有说服力、数据导向',
+          persona: '身份：市场总监；立场：关注市场竞争和商业价值；风格：热情、有说服力、数据导向',
           providerId: defaultProviderId,
         },
       ]);
@@ -63,7 +66,7 @@ export default function Create() {
     const defaultProviderId = providers.length > 0 ? providers[0].id : 'default';
     setCharacters([
       ...characters,
-      { id: generateId(), name: '', role: '', stance: '', style: '', providerId: defaultProviderId },
+      { id: generateId(), name: '', role: '', stance: '', style: '', persona: '', providerId: defaultProviderId },
     ]);
   }
 
@@ -117,10 +120,34 @@ export default function Create() {
     try {
       const roundTable: RoundTable = {
         id: generateId(),
+        schemaVersion: CURRENT_SCHEMA_VERSION,
         topic: topic.trim(),
-        host: { name: hostName.trim(), style: hostStyle.trim() },
-        characters: validChars,
         totalRounds,
+        scenario: {
+          title: topic.trim(),
+          description: topic.trim(),
+        },
+        host: {
+          name: hostName.trim(),
+          style: hostStyle.trim(),
+          mode: 'visible',
+        },
+        characters: validChars.map((c) => ({
+          ...c,
+          persona: c.persona || `${c.role}；${c.stance}；${c.style}`,
+        })),
+        rules: {
+          roundCount: totalRounds,
+          speakOrder: 'sequential',
+          maxSpeechLength: 300,
+          requireResponse: false,
+          allowConsecutiveSpeech: false,
+          scoringEnabled: false,
+        },
+        goal: {
+          type: 'custom',
+          description: topic.trim(),
+        },
         status: 'created',
         createdAt: Date.now(),
       };

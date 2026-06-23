@@ -1,4 +1,5 @@
 // ===== AI 圆桌模拟器 — Discussion Engine =====
+// Phase 13+14: V2 prompt 注入 + 隐性主持人 + 结构化结果
 
 import type { RoundTable, Message, Character } from './types';
 import { saveRoundTable, saveMessages } from './storage';
@@ -8,6 +9,7 @@ import {
   buildCharacterSpeechPrompt,
   buildHostSummaryPrompt,
   buildHostFinalSummaryPrompt,
+  buildStructuredResultPrompt,
 } from './prompts';
 import { generateId } from './types';
 
@@ -43,7 +45,6 @@ function buildMessage(
 
 /**
  * 调用 LLM，支持 AbortSignal 和 providerId
- * 发生错误时返回包含 error 字段的对象，不 throw（调用方决定是否重试）
  */
 async function callLLM(
   systemPrompt: string,
@@ -78,7 +79,7 @@ async function callLLM(
  * 生成整场圆桌讨论
  * @param signal — AbortSignal，用于停止生成
  * @param onMessage — 每条消息生成后的回调
- * @param onCharacterStart — 角色开始生成时的回调（用于 UI 显示"正在生成X"）
+ * @param onCharacterStart — 角色开始生成时的回调
  */
 export async function generateDiscussion(
   roundTable: RoundTable,
@@ -91,6 +92,7 @@ export async function generateDiscussion(
   const allMessages: Message[] = [];
   const systemPrompt = buildSystemPrompt();
   const { signal, onCharacterStart } = options || {};
+  const isInvisibleHost = roundTable.host?.mode === 'invisible';
 
   roundTable.status = 'discussing';
   await saveRoundTable(roundTable);
@@ -101,34 +103,32 @@ export async function generateDiscussion(
     user: string,
     provId?: string
   ): Promise<{ content?: string; error?: string }> => {
-    // 先尝试真实 LLM
     const result = await callLLM(sys, user, signal, provId);
     if (result.content || result.error === '生成已中止') return result;
-    // 失败时用 mock 占位
     return { content: '', error: result.error || '生成失败' };
   };
 
   try {
-    // Step 1: Host opening
+    // Step 1: Host opening (skip for invisible host)
     if (signal?.aborted) throw new AbortError();
-    onCharacterStart?.(roundTable.host.name);
-    const openingPrompt = buildHostOpeningPrompt(
-      roundTable.topic, roundTable.host, roundTable.characters
-    );
-    const openingRes = await tryCall(roundTable.host.name, systemPrompt, openingPrompt);
-    const openingMsg = buildMessage(
-      roundTable.id, 1, 'host', roundTable.host.name, 'opening',
-      openingRes.content || `（主持人开场失败${openingRes.error ? ': ' + openingRes.error : ''}）`,
-      { error: openingRes.error }
-    );
-    allMessages.push(openingMsg);
-    onMessage(openingMsg);
+    if (!isInvisibleHost) {
+      onCharacterStart?.(roundTable.host.name);
+      const openingPrompt = buildHostOpeningPrompt(roundTable);
+      const openingRes = await tryCall(roundTable.host.name, systemPrompt, openingPrompt);
+      const openingMsg = buildMessage(
+        roundTable.id, 1, 'host', roundTable.host.name, 'opening',
+        openingRes.content || `（主持人开场失败${openingRes.error ? ': ' + openingRes.error : ''}）`,
+        { error: openingRes.error }
+      );
+      allMessages.push(openingMsg);
+      onMessage(openingMsg);
+    }
 
     // Rounds 1..N
     for (let round = 1; round <= roundTable.totalRounds; round++) {
       if (signal?.aborted) throw new AbortError();
 
-      // Characters speak
+      // Characters speak (always, regardless of host mode)
       for (const character of roundTable.characters) {
         if (signal?.aborted) throw new AbortError();
 
@@ -154,38 +154,52 @@ export async function generateDiscussion(
         onMessage(speechMsg);
       }
 
+      // Host round summary (skip for invisible host)
       if (round < roundTable.totalRounds) {
         if (signal?.aborted) throw new AbortError();
-        onCharacterStart?.(roundTable.host.name);
 
-        const summaryPrompt = buildHostSummaryPrompt(
-          roundTable.topic, roundTable.host, round, allMessages, roundTable.characters
-        );
-        const summaryRes = await tryCall(roundTable.host.name, systemPrompt, summaryPrompt);
-        const summaryMsg = buildMessage(
-          roundTable.id, round, 'host', roundTable.host.name, 'summary',
-          summaryRes.content || `（小结生成失败${summaryRes.error ? ': ' + summaryRes.error : ''}）`,
-          { error: summaryRes.error }
-        );
-        allMessages.push(summaryMsg);
-        onMessage(summaryMsg);
+        if (!isInvisibleHost) {
+          onCharacterStart?.(roundTable.host.name);
+          const summaryPrompt = buildHostSummaryPrompt(roundTable, round, allMessages);
+          const summaryRes = await tryCall(roundTable.host.name, systemPrompt, summaryPrompt);
+          const summaryMsg = buildMessage(
+            roundTable.id, round, 'host', roundTable.host.name, 'summary',
+            summaryRes.content || `（小结生成失败${summaryRes.error ? ': ' + summaryRes.error : ''}）`,
+            { error: summaryRes.error }
+          );
+          allMessages.push(summaryMsg);
+          onMessage(summaryMsg);
+        }
       }
     }
 
-    // Final summary
+    // Step 4: Final summary (skip for invisible host)
     if (signal?.aborted) throw new AbortError();
-    onCharacterStart?.(roundTable.host.name);
-    const finalPrompt = buildHostFinalSummaryPrompt(
-      roundTable.topic, roundTable.host, allMessages, roundTable.characters
+    if (!isInvisibleHost) {
+      onCharacterStart?.(roundTable.host.name);
+      const finalPrompt = buildHostFinalSummaryPrompt(roundTable, allMessages);
+      const finalRes = await tryCall(roundTable.host.name, systemPrompt, finalPrompt);
+      const finalMsg = buildMessage(
+        roundTable.id, roundTable.totalRounds, 'host', roundTable.host.name, 'final_summary',
+        finalRes.content || `（总结生成失败${finalRes.error ? ': ' + finalRes.error : ''}）`,
+        { error: finalRes.error }
+      );
+      allMessages.push(finalMsg);
+      onMessage(finalMsg);
+    }
+
+    // Step 5: Structured result (all modes)
+    if (signal?.aborted) throw new AbortError();
+    onCharacterStart?.(`${roundTable.host.name}（总结）`);
+    const resultPrompt = buildStructuredResultPrompt(roundTable, allMessages);
+    const resultRes = await tryCall(roundTable.host.name, systemPrompt, resultPrompt);
+    const resultContent = resultRes.content || '';
+    const resultMsg = buildMessage(
+      roundTable.id, roundTable.totalRounds, 'host', roundTable.host.name, 'result',
+      resultContent, { error: resultRes.error }
     );
-    const finalRes = await tryCall(roundTable.host.name, systemPrompt, finalPrompt);
-    const finalMsg = buildMessage(
-      roundTable.id, roundTable.totalRounds, 'host', roundTable.host.name, 'final_summary',
-      finalRes.content || `（总结生成失败${finalRes.error ? ': ' + finalRes.error : ''}）`,
-      { error: finalRes.error }
-    );
-    allMessages.push(finalMsg);
-    onMessage(finalMsg);
+    allMessages.push(resultMsg);
+    onMessage(resultMsg);
 
     roundTable.status = 'completed';
     await saveRoundTable(roundTable);
@@ -194,7 +208,6 @@ export async function generateDiscussion(
 
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      // 中止时保存已有内容
       await saveMessages(roundTable.id, allMessages);
       return allMessages;
     }
