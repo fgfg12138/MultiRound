@@ -54,6 +54,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('data:repair-index'),
   dataOpenDirectory: () =>
     ipcRenderer.invoke('data:open-directory'),
+  openMarkdownFile: () =>
+    ipcRenderer.invoke('dialog:open-markdown'),
 
   // Menu action listener (main → renderer)
   onMenuAction: (callback: (action: string) => void) => {

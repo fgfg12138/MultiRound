@@ -41,6 +41,7 @@ export interface Host {
   name: string;
   style: string;
   mode: HostMode;                    // NEW: 默认 'visible'
+  providerId?: string;               // 主持人使用的 LLM 厂商 ID，默认走第一个
   allowUserInterruption?: boolean;
   autoIntervene?: boolean;
 }

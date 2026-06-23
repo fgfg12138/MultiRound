@@ -43,6 +43,7 @@ export interface ElectronAPI {
   dataExportRoundtable: (id: string) => Promise<{ content?: string; error?: string }>;
   dataRepairIndex: () => Promise<{ repaired: number; removed: number; errors: string[] }>;
   dataOpenDirectory: () => Promise<void>;
+  openMarkdownFile: () => Promise<{ path: string; content: string } | null>;
 
   // Menu action listener (main → renderer)
   onMenuAction: (callback: (action: string) => void) => () => void;

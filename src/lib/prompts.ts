@@ -36,7 +36,8 @@ export function buildRulesContext(rt: RoundTable): string {
   const order = r?.speakOrder ?? 'sequential';
   const resp = r?.requireResponse ?? false;
   const forbidden = r?.forbiddenTopics;
-  let ctx = `共 ${count} 轮，每轮发言不超过 ${maxLen} 字`;
+  let ctx = count === 0 ? '轮数不限' : `共 ${count} 轮`;
+  ctx += `，每轮发言不超过 ${maxLen} 字`;
   if (order === 'host-assigned') ctx += '，主持人指定发言顺序';
   else if (order === 'free') ctx += '，自由顺序发言';
   else ctx += '，依次发言';

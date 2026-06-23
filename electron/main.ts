@@ -787,6 +787,22 @@ ipcMain.handle('data:open-directory', async () => {
   await shell.openPath(dataDir);
 });
 
+// ===== File Dialog =====
+
+ipcMain.handle('dialog:open-markdown', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  try {
+    const content = fs.readFileSync(result.filePaths[0], 'utf-8');
+    return { path: result.filePaths[0], content };
+  } catch {
+    return null;
+  }
+});
+
 // App info
 ipcMain.handle('app:get-user-data-path', async () => {
   return app.getPath('userData');
@@ -875,10 +891,6 @@ ipcMain.handle('roundtables:export', async (_event, id: string) => {
   return { content: lines.join('\n') };
 });
 
-// App info
-ipcMain.handle('app:get-user-data-path', async () => {
-  return app.getPath('userData');
-});
 
 // ===== App Lifecycle =====
 

@@ -114,7 +114,7 @@ export async function generateDiscussion(
     if (!isInvisibleHost) {
       onCharacterStart?.(roundTable.host.name);
       const openingPrompt = buildHostOpeningPrompt(roundTable);
-      const openingRes = await tryCall(roundTable.host.name, systemPrompt, openingPrompt);
+      const openingRes = await tryCall(roundTable.host.name, systemPrompt, openingPrompt, roundTable.host.providerId);
       const openingMsg = buildMessage(
         roundTable.id, 1, 'host', roundTable.host.name, 'opening',
         openingRes.content || `（主持人开场失败${openingRes.error ? ': ' + openingRes.error : ''}）`,
@@ -124,8 +124,11 @@ export async function generateDiscussion(
       onMessage(openingMsg);
     }
 
-    // Rounds 1..N
-    for (let round = 1; round <= roundTable.totalRounds; round++) {
+    // Rounds 1..N (0 = infinite, stops via AbortSignal)
+    const SAFETY_HARD_CAP = 999; // prevent infinite loop bug, not a user limit
+    const maxRounds = roundTable.totalRounds === 0 ? SAFETY_HARD_CAP : roundTable.totalRounds;
+    let round = 1;
+    while (round <= maxRounds) {
       if (signal?.aborted) throw new AbortError();
 
       // Characters speak (always, regardless of host mode)
@@ -154,14 +157,14 @@ export async function generateDiscussion(
         onMessage(speechMsg);
       }
 
-      // Host round summary (skip for invisible host)
-      if (round < roundTable.totalRounds) {
+      // Host round summary (skip for invisible host; skip on final round in finite mode)
+      if (round < maxRounds) {
         if (signal?.aborted) throw new AbortError();
 
         if (!isInvisibleHost) {
           onCharacterStart?.(roundTable.host.name);
           const summaryPrompt = buildHostSummaryPrompt(roundTable, round, allMessages);
-          const summaryRes = await tryCall(roundTable.host.name, systemPrompt, summaryPrompt);
+          const summaryRes = await tryCall(roundTable.host.name, systemPrompt, summaryPrompt, roundTable.host.providerId);
           const summaryMsg = buildMessage(
             roundTable.id, round, 'host', roundTable.host.name, 'summary',
             summaryRes.content || `（小结生成失败${summaryRes.error ? ': ' + summaryRes.error : ''}）`,
@@ -171,6 +174,7 @@ export async function generateDiscussion(
           onMessage(summaryMsg);
         }
       }
+      round++;
     }
 
     // Step 4: Final summary (skip for invisible host)
@@ -178,9 +182,9 @@ export async function generateDiscussion(
     if (!isInvisibleHost) {
       onCharacterStart?.(roundTable.host.name);
       const finalPrompt = buildHostFinalSummaryPrompt(roundTable, allMessages);
-      const finalRes = await tryCall(roundTable.host.name, systemPrompt, finalPrompt);
+      const finalRes = await tryCall(roundTable.host.name, systemPrompt, finalPrompt, roundTable.host.providerId);
       const finalMsg = buildMessage(
-        roundTable.id, roundTable.totalRounds, 'host', roundTable.host.name, 'final_summary',
+        roundTable.id, round - 1, 'host', roundTable.host.name, 'final_summary',
         finalRes.content || `（总结生成失败${finalRes.error ? ': ' + finalRes.error : ''}）`,
         { error: finalRes.error }
       );
@@ -192,10 +196,10 @@ export async function generateDiscussion(
     if (signal?.aborted) throw new AbortError();
     onCharacterStart?.(`${roundTable.host.name}（总结）`);
     const resultPrompt = buildStructuredResultPrompt(roundTable, allMessages);
-    const resultRes = await tryCall(roundTable.host.name, systemPrompt, resultPrompt);
+    const resultRes = await tryCall(roundTable.host.name, systemPrompt, resultPrompt, roundTable.host.providerId);
     const resultContent = resultRes.content || '';
     const resultMsg = buildMessage(
-      roundTable.id, roundTable.totalRounds, 'host', roundTable.host.name, 'result',
+      roundTable.id, round - 1, 'host', roundTable.host.name, 'result',
       resultContent, { error: resultRes.error }
     );
     allMessages.push(resultMsg);
