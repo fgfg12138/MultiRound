@@ -21,12 +21,12 @@ interface InlineCharacter {
   id: string; name: string; role: string; persona: string;
   providerId: string; stance?: string; style?: string;
   motivation?: string; expertise?: string; relationship?: string;
-  constraints?: string; teamId?: string;
+  constraints?: string; teamId?: string; temperature?: number;
 }
 
 interface InlineHost {
   name: string; style: string; mode: HostMode;
-  providerId?: string;
+  providerId?: string; temperature?: number;
 }
 
 interface InlineRules {
@@ -221,12 +221,12 @@ function resolveProvider(providerId?: string): ProviderConfig | undefined {
   return undefined;
 }
 
-async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: string): Promise<{ content?: string; error?: string }> {
+async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: string, temp?: number): Promise<{ content?: string; error?: string }> {
   if (sig?.aborted) return { error: '生成已中止' };
   try {
     const p = resolveProvider(provId);
     if (!p) return { content: '', error: '未配置 LLM 厂商' };
-    const r = await callProviderLLM(p, [{ role: 'system', content: sys }, { role: 'user', content: user }]);
+    const r = await callProviderLLM(p, [{ role: 'system', content: sys }, { role: 'user', content: user }], temp);
     if (sig?.aborted) return { error: '生成已中止' };
     return r.content ? { content: r.content } : { error: r.error || 'LLM 调用返回空' };
   } catch (e: any) {
@@ -250,8 +250,8 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
 
   rt.status = 'discussing';
 
-  const tryCall = async (nm: string, s: string, u: string): Promise<{ content?: string; error?: string }> => {
-    const r = await callLlm(s, u, sig);
+  const tryCall = async (nm: string, s: string, u: string, temp?: number): Promise<{ content?: string; error?: string }> => {
+    const r = await callLlm(s, u, sig, undefined, temp);
     if (r.content || r.error === '生成已中止') return r;
     return { content: '', error: r.error || '生成失败' };
   };
@@ -260,7 +260,7 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
     if (sig?.aborted) throw new Error('生成已中止');
     if (!invisible && rt.host?.mode !== 'user') {
       send('discuss:character-start', rt.host.name);
-      const r = await tryCall(rt.host.name, sys, buildHostOpen(rt));
+      const r = await tryCall(rt.host.name, sys, buildHostOpen(rt), rt.host.temperature);
       const m = buildMsg(rt.id, 1, 'host', rt.host.name, 'opening', r.content || `（主持人开场失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
       all.push(m); send('discuss:message', m);
     }
@@ -272,7 +272,7 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
       for (const ch of rt.characters) {
         if (sig?.aborted) throw new Error('生成已中止');
         send('discuss:character-start', ch.name);
-        const r = await tryCall(ch.name, sys, buildCharSpeech(rt.topic, ch, round, all));
+        const r = await tryCall(ch.name, sys, buildCharSpeech(rt.topic, ch, round, all), ch.temperature);
         const ct = r.content || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
         const m = buildMsg(rt.id, round, ch.id, ch.name, 'speech', ct, { error: r.error, provId: ch.providerId });
         all.push(m); send('discuss:message', m);
@@ -291,7 +291,7 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
         } else if (!invisible) {
           // AI visible host
           send('discuss:character-start', rt.host.name);
-          const r = await tryCall(rt.host.name, sys, buildHostSum(rt, round, all));
+          const r = await tryCall(rt.host.name, sys, buildHostSum(rt, round, all), rt.host.temperature);
           const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content || `（小结生成失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
           all.push(m); send('discuss:message', m);
         }
@@ -303,14 +303,14 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
     if (sig?.aborted) throw new Error('生成已中止');
     if (!invisible && rt.host?.mode !== 'user') {
       send('discuss:character-start', rt.host.name);
-      const r = await tryCall(rt.host.name, sys, buildHostFinal(rt, all));
+      const r = await tryCall(rt.host.name, sys, buildHostFinal(rt, all), rt.host.temperature);
       const m = buildMsg(rt.id, round - 1, 'host', rt.host.name, 'final_summary', r.content || `（总结生成失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
       all.push(m); send('discuss:message', m);
     }
 
     if (sig?.aborted) throw new Error('生成已中止');
     send('discuss:character-start', `${rt.host.name}（总结）`);
-    const rp = await tryCall(rt.host.name, sys, buildResultPrompt(rt, all));
+    const rp = await tryCall(rt.host.name, sys, buildResultPrompt(rt, all), rt.host.temperature);
     const rm = buildMsg(rt.id, round - 1, 'host', rt.host.name, 'result', rp.content || '', { error: rp.error });
     all.push(rm); send('discuss:message', rm);
 

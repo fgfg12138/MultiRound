@@ -32,6 +32,7 @@ export interface Character {
   relationship?: string;
   constraints?: string;
   teamId?: string;
+  temperature?: number;      // 0.0-2.0，默认走厂商配置
 }
 
 // ===== 4. 主持人 =====
@@ -42,6 +43,7 @@ export interface Host {
   style: string;
   mode: HostMode;                    // NEW: 默认 'visible'
   providerId?: string;               // 主持人使用的 LLM 厂商 ID，默认走第一个
+  temperature?: number;              // 0.0-2.0
   allowUserInterruption?: boolean;
   autoIntervene?: boolean;
 }

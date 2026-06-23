@@ -70,7 +70,8 @@ export function maskProviderForUI(stored: StoredProviderConfig): ProviderConfig 
  */
 export async function callProviderLLM(
   provider: ProviderConfig,
-  messages: { role: string; content: string }[]
+  messages: { role: string; content: string }[],
+  temperature?: number
 ): Promise<LlmResponse> {
   // 无 API Key 时回落 Mock
   if (!provider.apiKey || provider.apiKey === '') {
@@ -90,7 +91,7 @@ export async function callProviderLLM(
         model: provider.model,
         messages,
         max_tokens: 1024,
-        temperature: 0.8,
+        temperature: temperature ?? 0.8,
       }),
       signal: AbortSignal.timeout(30000), // 30s timeout
     });
