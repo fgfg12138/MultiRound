@@ -25,6 +25,7 @@ export interface ElectronAPI {
   providersDelete: (id: string) => Promise<{ ok: boolean }>;
   providersTest: (config: ProviderConfig) => Promise<{ content?: string; error?: string; code?: string }>;
   providersRevealKey: (providerId: string) => Promise<{ revealed: boolean; key?: string; name?: string; error?: string }>;
+  providersFetchModels: (config: { baseUrl: string; apiKey: string }) => Promise<{ ok: boolean; models?: string[]; error?: string }>;
 
   // Roundtable management
   roundtablesSearch: (query?: string) => Promise<any[]>;

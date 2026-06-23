@@ -4,12 +4,11 @@ import type { ProviderConfig } from '@/types/electron.d';
 
 const api = () => {
   if (!window.electronAPI) {
-    throw new Error('请在 Electron 桌面应用中运行此功能');
+    throw new Error('请在 Electron 桌面应用中运行此功能。请通过 "npm run dev" 启动，而非单独打开浏览器。');
   }
   return window.electronAPI;
 };
 
-/** 获取所有已配置的 LLM 厂商列表 */
 export async function listProviders(): Promise<ProviderConfig[]> {
   try {
     return await api().providersList();
@@ -18,7 +17,6 @@ export async function listProviders(): Promise<ProviderConfig[]> {
   }
 }
 
-/** 保存一个厂商配置 */
 export async function saveProvider(config: ProviderConfig): Promise<{ ok: boolean; error?: string }> {
   try {
     return await api().providersSave(config);
@@ -27,19 +25,11 @@ export async function saveProvider(config: ProviderConfig): Promise<{ ok: boolea
   }
 }
 
-/** 删除一个厂商配置 */
 export async function deleteProvider(id: string): Promise<void> {
-  try {
-    await api().providersDelete(id);
-  } catch {
-    // silently fail
-  }
+  try { await api().providersDelete(id); } catch {}
 }
 
-/** 测试厂商连接 */
-export async function testProvider(
-  config: ProviderConfig
-): Promise<{ content?: string; error?: string; code?: string }> {
+export async function testProvider(config: ProviderConfig): Promise<{ content?: string; error?: string; code?: string }> {
   try {
     return await api().providersTest(config);
   } catch (e: any) {
@@ -47,10 +37,7 @@ export async function testProvider(
   }
 }
 
-/** 临时揭示 API Key（需要用户确认） */
-export async function revealProviderKey(
-  providerId: string
-): Promise<{ revealed: boolean; key?: string; name?: string; error?: string }> {
+export async function revealProviderKey(providerId: string): Promise<{ revealed: boolean; key?: string; name?: string; error?: string }> {
   try {
     return await api().providersRevealKey(providerId);
   } catch (e: any) {
@@ -58,7 +45,6 @@ export async function revealProviderKey(
   }
 }
 
-/** 获取第一个可用的 provider ID */
 export async function getFirstProviderId(): Promise<string | null> {
   const providers = await listProviders();
   return providers.length > 0 ? providers[0].id : null;

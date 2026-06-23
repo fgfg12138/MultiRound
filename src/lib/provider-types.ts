@@ -2,96 +2,55 @@
 
 export interface ProviderConfig {
   id: string;
-  name: string;          // 显示名称 e.g. "DeepSeek"
-  baseUrl: string;       // e.g. "https://api.deepseek.com/v1"
-  apiKey: string;        // 存储明文，发送时脱敏显示
-  model: string;         // e.g. "deepseek-chat"
-  isCustom: boolean;     // 用户自定义还是预设
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  isCustom: boolean;
 }
 
-/** 内置预设厂商（均为 OpenAI 兼容协议） */
 export const BUILTIN_PROVIDERS: Omit<ProviderConfig, 'apiKey' | 'id'>[] = [
-  {
-    name: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com/v1',
-    model: 'deepseek-chat',
-    isCustom: false,
-  },
-  {
-    name: 'DeepSeek-Reasoner',
-    baseUrl: 'https://api.deepseek.com/v1',
-    model: 'deepseek-reasoner',
-    isCustom: false,
-  },
-  {
-    name: 'OpenAI',
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4o',
-    isCustom: false,
-  },
-  {
-    name: 'Anthropic',
-    baseUrl: 'https://api.anthropic.com/v1',
-    model: 'claude-sonnet-4-20250514',
-    isCustom: false,
-  },
-  {
-    name: 'Google',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-    model: 'gemini-2.5-flash',
-    isCustom: false,
-  },
-  {
-    name: '智谱 GLM',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    model: 'glm-4-plus',
-    isCustom: false,
-  },
-  {
-    name: '通义千问',
-    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    model: 'qwen-plus',
-    isCustom: false,
-  },
-  {
-    name: 'Moonshot',
-    baseUrl: 'https://api.moonshot.cn/v1',
-    model: 'kimi-latest',
-    isCustom: false,
-  },
-  {
-    name: 'Groq',
-    baseUrl: 'https://api.groq.com/openai/v1',
-    model: 'llama-4-maverick-17b-128e-instruct',
-    isCustom: false,
-  },
-  {
-    name: 'SiliconFlow',
-    baseUrl: 'https://api.siliconflow.cn/v1',
-    model: 'deepseek-ai/DeepSeek-V3-0324',
-    isCustom: false,
-  },
-  {
-    name: 'Mistral',
-    baseUrl: 'https://api.mistral.ai/v1',
-    model: 'mistral-large-latest',
-    isCustom: false,
-  },
-  {
-    name: '零一万物',
-    baseUrl: 'https://api.lingyiwanwu.com/v1',
-    model: 'yi-large',
-    isCustom: false,
-  },
+  // ===== DeepSeek =====
+  { name: 'DeepSeek V3',      baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat',        isCustom: false },
+  { name: 'DeepSeek R1',      baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-reasoner',    isCustom: false },
+
+  // ===== 智谱 GLM =====
+  { name: 'GLM-5.2',          baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.2',      isCustom: false },
+  { name: 'GLM-5.1',          baseUrl: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.1',      isCustom: false },
+
+  // ===== 月之暗面 Kimi =====
+  { name: 'Kimi K2.7 Code',   baseUrl: 'https://api.moonshot.cn/v1',      model: 'kimi-k2.7-code',   isCustom: false },
+  { name: 'Kimi K2.6',       baseUrl: 'https://api.moonshot.cn/v1',      model: 'kimi-k2.6',        isCustom: false },
+
+  // ===== 阶跃星辰 StepFun =====
+  { name: 'MiMo-V2.5',       baseUrl: 'https://api.stepfun.com/v1',      model: 'mimo-v2.5',        isCustom: false },
+  { name: 'MiMo-V2.5-Pro',   baseUrl: 'https://api.stepfun.com/v1',      model: 'mimo-v2.5-pro',    isCustom: false },
+
+  // ===== MiniMax =====
+  { name: 'MiniMax M3',       baseUrl: 'https://api.minimax.chat/v1',     model: 'minimax-m3',       isCustom: false },
+  { name: 'MiniMax M2.7',     baseUrl: 'https://api.minimax.chat/v1',     model: 'minimax-m2.7',     isCustom: false },
+
+  // ===== 阿里 通义千问 Qwen =====
+  { name: 'Qwen3.7 Max',      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-max',   isCustom: false },
+  { name: 'Qwen3.7 Plus',     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus',  isCustom: false },
+  { name: 'Qwen3.6 Plus',     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.6-plus',  isCustom: false },
 ];
 
-/** 脱敏 API Key，仅显示最后4位 */
 export function maskApiKey(key: string): string {
   if (!key || key.length < 4) return '****';
   return `****${key.slice(-4)}`;
 }
 
-/** 生成唯一的 provider ID */
 export function generateProviderId(): string {
   return `prov_${crypto.randomUUID().slice(0, 8)}`;
 }
+
+/** 按公司分组的预设列表（供 UI 下拉分组显示） */
+export const PROVIDER_GROUPS: { company: string; models: typeof BUILTIN_PROVIDERS }[] = [
+  { company: 'DeepSeek（深度求索）',    models: BUILTIN_PROVIDERS.filter(p => p.baseUrl.includes('deepseek')) },
+  { company: '智谱 GLM',             models: BUILTIN_PROVIDERS.filter(p => p.baseUrl.includes('bigmodel')) },
+  { company: '月之暗面 Kimi',          models: BUILTIN_PROVIDERS.filter(p => p.baseUrl.includes('moonshot')) },
+  { company: '阶跃星辰 StepFun',       models: BUILTIN_PROVIDERS.filter(p => p.baseUrl.includes('stepfun')) },
+  { company: 'MiniMax',              models: BUILTIN_PROVIDERS.filter(p => p.baseUrl.includes('minimax')) },
+  { company: '阿里 通义千问 Qwen',      models: BUILTIN_PROVIDERS.filter(p => p.baseUrl.includes('dashscope')) },
+];

@@ -13,18 +13,25 @@ import {
 } from 'lucide-react';
 
 const PRESET_INFO = [
-  { name: 'DeepSeek', url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  { name: 'DeepSeek-Reasoner', url: 'https://api.deepseek.com/v1', model: 'deepseek-reasoner' },
-  { name: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o' },
-  { name: 'Anthropic', url: 'https://api.anthropic.com/v1', model: 'claude-sonnet-4-20250514' },
-  { name: 'Google', url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' },
-  { name: '智谱 GLM', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-plus' },
-  { name: '通义千问', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  { name: 'Moonshot', url: 'https://api.moonshot.cn/v1', model: 'kimi-latest' },
-  { name: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'llama-4-maverick-17b-128e-instruct' },
-  { name: 'SiliconFlow', url: 'https://api.siliconflow.cn/v1', model: 'deepseek-ai/DeepSeek-V3-0324' },
-  { name: 'Mistral', url: 'https://api.mistral.ai/v1', model: 'mistral-large-latest' },
-  { name: '零一万物', url: 'https://api.lingyiwanwu.com/v1', model: 'yi-large' },
+  // DeepSeek
+  { name: 'DeepSeek V3', url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  { name: 'DeepSeek R1', url: 'https://api.deepseek.com/v1', model: 'deepseek-reasoner' },
+  // 智谱 GLM
+  { name: 'GLM-5.2', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.2' },
+  { name: 'GLM-5.1', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.1' },
+  // Kimi
+  { name: 'Kimi K2.7 Code', url: 'https://api.moonshot.cn/v1', model: 'kimi-k2.7-code' },
+  { name: 'Kimi K2.6', url: 'https://api.moonshot.cn/v1', model: 'kimi-k2.6' },
+  // 阶跃星辰
+  { name: 'MiMo-V2.5', url: 'https://api.stepfun.com/v1', model: 'mimo-v2.5' },
+  { name: 'MiMo-V2.5-Pro', url: 'https://api.stepfun.com/v1', model: 'mimo-v2.5-pro' },
+  // MiniMax
+  { name: 'MiniMax M3', url: 'https://api.minimax.chat/v1', model: 'minimax-m3' },
+  { name: 'MiniMax M2.7', url: 'https://api.minimax.chat/v1', model: 'minimax-m2.7' },
+  // Qwen
+  { name: 'Qwen3.7 Max', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-max' },
+  { name: 'Qwen3.7 Plus', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus' },
+  { name: 'Qwen3.6 Plus', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.6-plus' },
 ];
 
 export default function Settings() {

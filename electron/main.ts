@@ -286,6 +286,21 @@ ipcMain.handle('providers:reveal-key', async (_event, providerId: string) => {
   }
 });
 
+// ===== Fetch Models =====
+ipcMain.handle('providers:fetch-models', async (_event, config: { baseUrl: string; apiKey: string }) => {
+  try {
+    const res = await fetch(`${config.baseUrl}/models`, {
+      headers: { 'Authorization': `Bearer ${config.apiKey}`, 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
+    const json = await res.json();
+    const models: string[] = (json.data || []).map((m: any) => m.id).sort();
+    return { ok: true, models };
+  } catch (e: any) {
+    return { ok: false, error: e.message || '获取模型列表失败' };
+  }
+});
+
 // Generic storage
 ipcMain.handle('storage:get', async (_event, key: string) => store.get(key));
 

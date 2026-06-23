@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('providers:test', config),
   providersRevealKey: (providerId: string) =>
     ipcRenderer.invoke('providers:reveal-key', providerId),
+  providersFetchModels: (config: { baseUrl: string; apiKey: string }) =>
+    ipcRenderer.invoke('providers:fetch-models', config),
 
   // Roundtable management
   roundtablesSearch: (query?: string) =>
