@@ -1,167 +1,128 @@
-// ===== AI 圆桌模拟器 — Create Roundtable Page =====
+// ===== AI 圆桌模拟器 — Create Roundtable Page (V2) =====
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Character, RoundTable } from '@/lib/types';
+import type { Character, RoundTable, Team } from '@/lib/types';
 import type { ProviderConfig } from '@/types/electron.d';
 import { generateId, CURRENT_SCHEMA_VERSION } from '@/lib/types';
 import { saveRoundTable } from '@/lib/storage';
 import { listProviders } from '@/lib/settings-store';
 import { useToast } from '@/components/Toast';
 import Layout from '@/components/Layout';
-import CharacterForm from '@/components/CharacterForm';
-import { Plus, Play, Settings, AlertCircle } from 'lucide-react';
+import { Plus, Play, Settings, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+
+const TEAM_COLORS = ['#8B5CF6','#EC4899','#10B981','#F59E0B','#3B82F6','#EF4444','#06B6D4','#84CC16'];
 
 export default function Create() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [providersLoaded, setProvidersLoaded] = useState(false);
-  const [topic, setTopic] = useState('');
-  const [hostName, setHostName] = useState('主持人');
-  const [hostStyle, setHostStyle] = useState('中立、控场、善于追问');
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [totalRounds, setTotalRounds] = useState(3);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Scenario
+  const [scenarioTitle, setScenarioTitle] = useState('');
+  const [scenarioDesc, setScenarioDesc] = useState('');
+  const [atmosphere, setAtmosphere] = useState('formal');
+
+  // Host
+  const [hostName, setHostName] = useState('主持人');
+  const [hostStyle, setHostStyle] = useState('中立、控场、善于追问');
+  const [hostMode, setHostMode] = useState<'visible' | 'invisible' | 'user'>('visible');
+  const [hostProviderId, setHostProviderId] = useState('');
+
+  // Teams
+  const [teams, setTeams] = useState<Team[]>([]);
+
+  // Characters
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [advancedOpen, setAdvancedOpen] = useState<Record<number, boolean>>({});
+
+  // Rules
+  const [unlimitedRounds, setUnlimitedRounds] = useState(false);
+  const [roundCount, setRoundCount] = useState(3);
+  const [speakOrder, setSpeakOrder] = useState<'sequential' | 'free' | 'host-assigned'>('sequential');
+  const [maxSpeechLength, setMaxSpeechLength] = useState(300);
+  const [scoringEnabled, setScoringEnabled] = useState(false);
+  const [forbiddenTopics, setForbiddenTopics] = useState('');
+
+  // Goal
+  const [goalType, setGoalType] = useState<'consensus' | 'decision' | 'analysis' | 'ranking' | 'debate' | 'creative' | 'custom'>('consensus');
+  const [goalDesc, setGoalDesc] = useState('');
+  const [goalCriteria, setGoalCriteria] = useState('');
 
   useEffect(() => {
     listProviders().then((p) => {
       setProviders(p);
       setProvidersLoaded(true);
-      const defaultProviderId = p.length > 0 ? p[0].id : 'default';
+      const dp = p.length > 0 ? p[0].id : '';
+      setHostProviderId(dp);
       setCharacters([
-        {
-          id: generateId(),
-          name: '技术派',
-          role: '技术负责人',
-          stance: '关注实现难度、成本和技术风险',
-          style: '冷静、直接、偏现实',
-          persona: '身份：技术负责人；立场：关注实现难度、成本和技术风险；风格：冷静、直接、偏现实',
-          providerId: defaultProviderId,
-        },
-        {
-          id: generateId(),
-          name: '用户代表',
-          role: '普通用户',
-          stance: '关注产品是否真的好用',
-          style: '直白、具体、不讲空话',
-          persona: '身份：普通用户；立场：关注产品是否真的好用；风格：直白、具体、不讲空话',
-          providerId: defaultProviderId,
-        },
-        {
-          id: generateId(),
-          name: '市场派',
-          role: '市场总监',
-          stance: '关注市场竞争和商业价值',
-          style: '热情、有说服力、数据导向',
-          persona: '身份：市场总监；立场：关注市场竞争和商业价值；风格：热情、有说服力、数据导向',
-          providerId: defaultProviderId,
-        },
+        { id: generateId(), name: '技术派', role: '技术专家', persona: '关注架构、性能与工程实现，务实但有时过于悲观', stance: '', style: '', providerId: dp },
+        { id: generateId(), name: '用户代表', role: '产品经理', persona: '关注需求、体验与商业价值，讨厌空话', stance: '', style: '', providerId: dp },
+        { id: generateId(), name: '市场派', role: '市场分析师', persona: '关注竞品、趋势与增长路径，数据导向', stance: '', style: '', providerId: dp },
       ]);
     });
   }, []);
 
   function addCharacter() {
-    const defaultProviderId = providers.length > 0 ? providers[0].id : 'default';
-    setCharacters([
-      ...characters,
-      { id: generateId(), name: '', role: '', stance: '', style: '', persona: '', providerId: defaultProviderId },
-    ]);
+    setCharacters([...characters, { id: generateId(), name: '', role: '', persona: '', stance: '', style: '', providerId: hostProviderId }]);
   }
-
-  function updateCharacter(index: number, updated: Character) {
+  function removeCharacter(idx: number) {
+    if (characters.length <= 2) { setError('至少需要 2 个角色'); return; }
+    setCharacters(characters.filter((_, i) => i !== idx));
+    setError('');
+  }
+  function updateCharacter(idx: number, field: keyof Character, value: string) {
     const next = [...characters];
-    next[index] = updated;
+    next[idx] = { ...next[idx], [field]: value };
     setCharacters(next);
   }
 
-  function removeCharacter(index: number) {
-    if (characters.length <= 2) {
-      setError('至少需要 2 个角色');
-      return;
-    }
-    setCharacters(characters.filter((_, i) => i !== index));
-    setError('');
+  function addTeam() {
+    setTeams([...teams, { id: generateId(), name: `阵营${teams.length + 1}`, color: TEAM_COLORS[teams.length % TEAM_COLORS.length] }]);
   }
+  function removeTeam(idx: number) { setTeams(teams.filter((_, i) => i !== idx)); }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-
-    // Check providers first
-    if (providers.length === 0) {
-      setError('请先在设置页配置至少一个 LLM 厂商');
-      return;
-    }
-
-    if (!topic.trim()) {
-      setError('请输入讨论主题');
-      return;
-    }
-
-    if (!hostName.trim()) {
-      setError('请输入主持人名称');
-      return;
-    }
-
-    const validChars = characters.filter((c) => c.name.trim());
-    if (validChars.length < 2) {
-      setError('至少需要 2 个有名称的角色');
-      return;
-    }
-
-    if (totalRounds < 2 || totalRounds > 5) {
-      setError('讨论轮数需要在 2-5 之间');
-      return;
-    }
+    if (providers.length === 0) { setError('请先在设置页配置至少一个 LLM 厂商'); return; }
+    if (!scenarioTitle.trim()) { setError('请输入讨论主题'); return; }
+    const validChars = characters.filter(c => c.name.trim());
+    if (validChars.length < 2) { setError('至少需要 2 个有名称的角色'); return; }
 
     setSaving(true);
     try {
-      const roundTable: RoundTable = {
+      const actualRounds = unlimitedRounds ? 0 : roundCount;
+      const rt: RoundTable = {
         id: generateId(),
         schemaVersion: CURRENT_SCHEMA_VERSION,
-        topic: topic.trim(),
-        totalRounds,
-        scenario: {
-          title: topic.trim(),
-          description: topic.trim(),
-        },
-        host: {
-          name: hostName.trim(),
-          style: hostStyle.trim(),
-          mode: 'visible',
-        },
-        characters: validChars.map((c) => ({
-          ...c,
-          persona: c.persona || `${c.role}；${c.stance}；${c.style}`,
+        topic: scenarioTitle.trim(),
+        totalRounds: actualRounds,
+        scenario: { title: scenarioTitle.trim(), description: scenarioDesc.trim(), atmosphere },
+        host: { name: hostName.trim(), style: hostStyle.trim(), mode: hostMode, providerId: hostProviderId || undefined },
+        characters: validChars.map(c => ({
+          ...c, persona: c.persona || [c.role, c.stance, c.style].filter(Boolean).join('；'),
+          teamId: c.teamId || undefined,
         })),
+        teams: teams.length > 0 ? teams : undefined,
         rules: {
-          roundCount: totalRounds,
-          speakOrder: 'sequential',
-          maxSpeechLength: 300,
-          requireResponse: false,
-          allowConsecutiveSpeech: false,
-          scoringEnabled: false,
+          roundCount: actualRounds, speakOrder, maxSpeechLength,
+          requireResponse: false, allowConsecutiveSpeech: false, scoringEnabled,
+          forbiddenTopics: forbiddenTopics.trim() ? forbiddenTopics.split('\n').filter(Boolean) : undefined,
         },
-        goal: {
-          type: 'custom',
-          description: topic.trim(),
-        },
-        status: 'created',
-        createdAt: Date.now(),
+        goal: { type: goalType, description: goalDesc.trim() || scenarioTitle.trim(), successCriteria: goalCriteria.trim() || undefined },
+        status: 'created', createdAt: Date.now(),
       };
-
-      await saveRoundTable(roundTable);
-      navigate(`/discussion/${roundTable.id}`);
+      await saveRoundTable(rt);
+      navigate(`/discussion/${rt.id}`);
     } catch (err: any) {
       showToast({ type: 'error', message: err.message || '保存失败' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
-  // No providers configured — show blocking message
   if (providersLoaded && providers.length === 0) {
     return (
       <Layout title="创建圆桌" showBack backTo="/">
@@ -169,143 +130,240 @@ export default function Create() {
           <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-amber-600" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">
-            需要先配置 LLM 厂商
-          </h2>
-          <p className="text-sm text-gray-500 mb-6">
-            在开始创建圆桌之前，请先前往设置页添加至少一个 LLM 厂商（如 DeepSeek、OpenAI 等）。
-          </p>
-          <button
-            onClick={() => navigate('/settings')}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200"
-          >
-            <Settings className="w-5 h-5" />
-            前往设置
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">需要先配置 LLM 厂商</h2>
+          <p className="text-sm text-gray-500 mb-6">在开始创建圆桌之前，请先前往设置页添加至少一个 LLM 厂商。</p>
+          <button onClick={() => navigate('/settings')} className="inline-flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200">
+            <Settings className="w-5 h-5" />前往设置
           </button>
         </div>
       </Layout>
     );
   }
 
+  const SectionNum = ({ n }: { n: number }) => (
+    <span className="w-7 h-7 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">{n}</span>
+  );
+
   return (
     <Layout title="创建圆桌" showBack backTo="/">
-      <div className="max-w-3xl mx-auto w-full px-4 py-8">
-        <p className="text-sm text-gray-500 mb-6">
-          设置讨论主题、主持人和参与角色
-        </p>
+      <div className="max-w-3xl mx-auto w-full px-4 py-6">
+        <p className="text-sm text-gray-500 mb-6">设置讨论主题、主持人和参与角色</p>
+        <form onSubmit={handleSubmit} className="space-y-6 pb-24">
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Topic */}
+          {/* ===== 1. 场景 ===== */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">讨论主题</h2>
-            <textarea
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="输入讨论主题，比如：人工智能是否会取代人类工作？"
-              rows={3}
-              className="w-full px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-none"
-              required
-            />
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={1} />讨论场景</h2>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">主题</label>
+              <input type="text" value={scenarioTitle} onChange={e => setScenarioTitle(e.target.value)} placeholder="例如：下一代 AI 产品的核心竞争力在哪里？" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" required />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">场景描述</label>
+              <textarea value={scenarioDesc} onChange={e => setScenarioDesc(e.target.value)} placeholder="描述讨论的背景、上下文和期望方向..." rows={3} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">氛围</label>
+              <select value={atmosphere} onChange={e => setAtmosphere(e.target.value)} className="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white">
+                <option value="formal">正式</option>
+                <option value="confrontational">对抗性</option>
+                <option value="relaxed">轻松</option>
+                <option value="tense">紧张</option>
+              </select>
+            </div>
           </section>
 
-          {/* Host */}
+          {/* ===== 2. 主持人 ===== */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">主持人设置</h2>
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={2} />主持人</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  主持人名称
-                </label>
-                <input
-                  type="text"
-                  value={hostName}
-                  onChange={(e) => setHostName(e.target.value)}
-                  placeholder="主持人"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                />
+                <label className="block text-xs text-gray-500 mb-1">名称</label>
+                <input type="text" value={hostName} onChange={e => setHostName(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  主持风格
-                </label>
-                <input
-                  type="text"
-                  value={hostStyle}
-                  onChange={(e) => setHostStyle(e.target.value)}
-                  placeholder="中立、控场、善于追问"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                />
+                <label className="block text-xs text-gray-500 mb-1">主持风格</label>
+                <input type="text" value={hostStyle} onChange={e => setHostStyle(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">模式</label>
+                <select value={hostMode} onChange={e => setHostMode(e.target.value as any)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white">
+                  <option value="visible">可见（参与发言）</option>
+                  <option value="invisible">不可见（仅控场）</option>
+                  <option value="user">用户（你作为主持人）</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">模型厂商</label>
+                <select value={hostProviderId} onChange={e => setHostProviderId(e.target.value)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white">
+                  {providers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.model})</option>)}
+                </select>
               </div>
             </div>
           </section>
 
-          {/* Characters */}
+          {/* ===== 3. 阵营（可选） ===== */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">角色列表</h2>
-              <button
-                type="button"
-                onClick={addCharacter}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                添加角色
-              </button>
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={3} />阵营<span className="text-xs font-normal text-gray-400 ml-1">（可选）</span></h2>
+              <button type="button" onClick={addTeam} className="inline-flex items-center gap-1 px-2 py-1 text-xs text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><Plus className="w-3.5 h-3.5" />添加</button>
             </div>
-            <p className="text-xs text-gray-400">
-              至少 2 个角色，建议 3-5 个角色。每个角色可选择不同的 AI 模型。
-            </p>
-            <div className="space-y-3">
-              {characters.map((char, index) => (
-                <CharacterForm
-                  key={char.id}
-                  index={index}
-                  character={char}
-                  providers={providers}
-                  onChange={(updated) => updateCharacter(index, updated)}
-                  onRemove={() => removeCharacter(index)}
-                />
-              ))}
-            </div>
+            {teams.length === 0 && <p className="text-xs text-gray-400">暂无阵营，角色将使用默认颜色</p>}
+            {teams.map((t, i) => (
+              <div key={t.id} className="flex items-center gap-3">
+                <input type="text" value={t.name} onChange={e => { const n = [...teams]; n[i].name = e.target.value; setTeams(n); }} className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" placeholder="阵营名称" />
+                <div className="flex gap-1.5">
+                  {TEAM_COLORS.map(c => (
+                    <button key={c} type="button" onClick={() => { const n = [...teams]; n[i].color = c; setTeams(n); }} className={`w-5 h-5 rounded-md border-2 ${t.color === c ? 'border-gray-800 scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                  ))}
+                </div>
+                <button type="button" onClick={() => removeTeam(i)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            ))}
           </section>
 
-          {/* Rounds */}
+          {/* ===== 4. 角色列表 ===== */}
           <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900">讨论轮数</h2>
-            <div className="flex items-center gap-4">
-              <input
-                type="number"
-                value={totalRounds}
-                onChange={(e) =>
-                  setTotalRounds(
-                    Math.max(2, Math.min(5, parseInt(e.target.value) || 3))
-                  )
-                }
-                min={2}
-                max={5}
-                className="w-20 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-center"
-              />
-              <span className="text-sm text-gray-500">轮（2-5 轮）</span>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={4} />角色列表</h2>
+              <button type="button" onClick={addCharacter} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><Plus className="w-4 h-4" />添加角色</button>
             </div>
-            <p className="text-xs text-gray-400">
-              默认 3 轮：第 1 轮初始观点 → 第 2 轮追问补充 → 第 3 轮收束总结
-            </p>
+            <p className="text-xs text-gray-400">至少 2 个角色。每个角色可选择不同的 AI 模型。</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left text-xs text-gray-500 uppercase tracking-wider">
+                    <th className="py-2 px-2 font-medium">名称</th>
+                    <th className="py-2 px-2 font-medium">身份</th>
+                    <th className="py-2 px-2 font-medium">人设</th>
+                    <th className="py-2 px-2 font-medium">模型</th>
+                    <th className="py-2 px-2 font-medium">阵营</th>
+                    <th className="py-2 px-2 font-medium w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {characters.map((c, i) => (
+                    <Fragment key={c.id}>
+                      <tr className="border-b border-gray-100">
+                        <td className="py-2 px-2"><input type="text" value={c.name} onChange={e => updateCharacter(i, 'name', e.target.value)} placeholder="名称" className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></td>
+                        <td className="py-2 px-2"><input type="text" value={c.role} onChange={e => updateCharacter(i, 'role', e.target.value)} placeholder="身份" className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></td>
+                        <td className="py-2 px-2 min-w-[200px]"><textarea value={c.persona} onChange={e => updateCharacter(i, 'persona', e.target.value)} placeholder="角色人设：性格、背景、立场、说话方式..." rows={2} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" /></td>
+                        <td className="py-2 px-2">
+                          <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white">
+                            {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          <select value={c.teamId || ''} onChange={e => updateCharacter(i, 'teamId', e.target.value)} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white">
+                            <option value="">无</option>
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                          </select>
+                        </td>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => setAdvancedOpen(prev => ({ ...prev, [i]: !prev[i] }))} className="text-gray-400 hover:text-gray-600" title="高级选项">
+                              {advancedOpen[i] ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                            </button>
+                            <button type="button" onClick={() => removeCharacter(i)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                      {advancedOpen[i] && (
+                        <tr className="bg-gray-50">
+                          <td colSpan={6} className="py-3 px-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                              <div><label className="text-gray-500">立场</label><input type="text" value={c.stance || ''} onChange={e => updateCharacter(i, 'stance', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                              <div><label className="text-gray-500">说话风格</label><input type="text" value={c.style || ''} onChange={e => updateCharacter(i, 'style', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                              <div><label className="text-gray-500">动机</label><input type="text" value={c.motivation || ''} onChange={e => updateCharacter(i, 'motivation', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                              <div><label className="text-gray-500">专业领域</label><input type="text" value={c.expertise || ''} onChange={e => updateCharacter(i, 'expertise', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                              <div><label className="text-gray-500">人物关系</label><input type="text" value={c.relationship || ''} onChange={e => updateCharacter(i, 'relationship', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                              <div><label className="text-gray-500">限制条件</label><input type="text" value={c.constraints || ''} onChange={e => updateCharacter(i, 'constraints', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
-              {error}
+          {/* ===== 5. 规则 ===== */}
+          <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={5} />讨论规则</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="flex items-center gap-2 mb-2">
+                  <input type="checkbox" checked={unlimitedRounds} onChange={e => setUnlimitedRounds(e.target.checked)} className="rounded" />
+                  <span className="text-sm text-gray-700">不预设轮数</span>
+                </label>
+                {!unlimitedRounds && (
+                  <div className="flex items-center gap-2">
+                    <input type="number" value={roundCount} onChange={e => setRoundCount(Math.max(2, Math.min(50, parseInt(e.target.value) || 3)))} min={2} max={50} className="w-16 px-2 py-1.5 text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                    <span className="text-sm text-gray-500">轮</span>
+                  </div>
+                )}
+                {unlimitedRounds && <p className="text-xs text-gray-400 mt-1">不限轮数，最多 999 轮安全上限，可随时停止</p>}
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">发言顺序</label>
+                <select value={speakOrder} onChange={e => setSpeakOrder(e.target.value as any)} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                  <option value="sequential">顺序发言</option>
+                  <option value="free">自由辩论</option>
+                  <option value="host-assigned">主持人指派</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">字数上限</label>
+                <input type="number" value={maxSpeechLength} onChange={e => setMaxSpeechLength(Math.max(50, Math.min(1000, parseInt(e.target.value) || 300)))} min={50} max={1000} className="w-20 px-2 py-1.5 text-sm text-center border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400" />
+              </div>
             </div>
-          )}
+            <div>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={scoringEnabled} onChange={e => setScoringEnabled(e.target.checked)} className="rounded" />
+                <span className="text-sm text-gray-700">启用评分</span>
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">禁止话题</label>
+              <textarea value={forbiddenTopics} onChange={e => setForbiddenTopics(e.target.value)} placeholder="每行一个话题，讨论中将避开这些内容" rows={2} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" />
+            </div>
+          </section>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 disabled:opacity-50"
-          >
-            <Play className="w-5 h-5" />
-            {saving ? '保存中...' : '开始讨论'}
-          </button>
+          {/* ===== 6. 目标 ===== */}
+          <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={6} />讨论目标</h2>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">目标类型</label>
+              <select value={goalType} onChange={e => setGoalType(e.target.value as any)} className="w-full sm:w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 bg-white">
+                <option value="consensus">达成共识</option>
+                <option value="decision">做出决策</option>
+                <option value="analysis">深度分析</option>
+                <option value="ranking">方案排序</option>
+                <option value="debate">观点辩论</option>
+                <option value="creative">创意头脑风暴</option>
+                <option value="custom">自定义</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">目标描述</label>
+              <textarea value={goalDesc} onChange={e => setGoalDesc(e.target.value)} placeholder="描述本次讨论希望达成的具体目标..." rows={2} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">成功标准 <span className="text-gray-400">（可选）</span></label>
+              <input type="text" value={goalCriteria} onChange={e => setGoalCriteria(e.target.value)} placeholder="如何衡量讨论是否成功？" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400" />
+            </div>
+          </section>
+
+          {error && <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{error}</div>}
+
+          {/* Submit bar */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex justify-between items-center z-40">
+            <span className="text-xs text-gray-400">共 {characters.filter(c => c.name.trim()).length} 个角色 · {unlimitedRounds ? '不限轮数' : `${roundCount} 轮`}</span>
+            <button type="submit" disabled={saving} className="flex items-center gap-2 px-8 py-3 bg-purple-600 text-white rounded-xl font-medium hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 disabled:opacity-50">
+              <Play className="w-5 h-5" />{saving ? '保存中...' : '开始讨论'}
+            </button>
+          </div>
         </form>
       </div>
     </Layout>
