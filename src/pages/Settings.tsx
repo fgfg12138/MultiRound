@@ -12,27 +12,7 @@ import {
   ExternalLink, Wrench,
 } from 'lucide-react';
 
-const PRESET_INFO = [
-  // DeepSeek
-  { name: 'DeepSeek V3', url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
-  { name: 'DeepSeek R1', url: 'https://api.deepseek.com/v1', model: 'deepseek-reasoner' },
-  // 智谱 GLM
-  { name: 'GLM-5.2', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.2' },
-  { name: 'GLM-5.1', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-5.1' },
-  // Kimi
-  { name: 'Kimi K2.7 Code', url: 'https://api.moonshot.cn/v1', model: 'kimi-k2.7-code' },
-  { name: 'Kimi K2.6', url: 'https://api.moonshot.cn/v1', model: 'kimi-k2.6' },
-  // 阶跃星辰
-  { name: 'MiMo-V2.5', url: 'https://api.stepfun.com/v1', model: 'mimo-v2.5' },
-  { name: 'MiMo-V2.5-Pro', url: 'https://api.stepfun.com/v1', model: 'mimo-v2.5-pro' },
-  // MiniMax
-  { name: 'MiniMax M3', url: 'https://api.minimax.chat/v1', model: 'minimax-m3' },
-  { name: 'MiniMax M2.7', url: 'https://api.minimax.chat/v1', model: 'minimax-m2.7' },
-  // Qwen
-  { name: 'Qwen3.7 Max', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-max' },
-  { name: 'Qwen3.7 Plus', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.7-plus' },
-  { name: 'Qwen3.6 Plus', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen3.6-plus' },
-];
+const PRESET_INFO = BUILTIN_PROVIDERS;
 
 export default function Settings() {
   const { showToast } = useToast();
@@ -79,7 +59,7 @@ export default function Settings() {
     if (!preset) return;
     setFormName(preset.name);
     setFormBaseUrl(preset.baseUrl);
-    setFormModel(preset.model);
+    setFormModel('');  // 清空，用户自己填或用「获取模型」
   }
 
   async function handleSaveProvider(e: React.FormEvent) {
@@ -243,8 +223,7 @@ export default function Settings() {
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
                     >
                       <span className="font-medium">{p.name}</span>
-                      <span className="text-xs text-gray-400 ml-2 block sm:inline">{p.url}</span>
-                      <span className="text-xs text-gray-400 ml-2">模型: {p.model}</span>
+                      <span className="text-xs text-gray-400 ml-2">{p.baseUrl}</span>
                     </button>
                   ))}
                 </div>
@@ -261,7 +240,7 @@ export default function Settings() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">
                   API Base URL
-                  <span className="text-gray-300 ml-1">例: {PRESET_INFO[0]?.url}</span>
+                  <span className="text-gray-300 ml-1">例: {PRESET_INFO[0]?.baseUrl}</span>
                 </label>
                 <input type="text" value={formBaseUrl} onChange={(e) => setFormBaseUrl(e.target.value)}
                   placeholder="https://api.deepseek.com/v1"
