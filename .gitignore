@@ -21,6 +21,9 @@ release
 # Reasonix
 .reasonix
 
+# Dev data
+data
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
