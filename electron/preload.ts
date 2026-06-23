@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     messages: { role: string; content: string }[],
     providerId?: string
   ) => ipcRenderer.invoke('discuss:generate', messages, providerId),
+  discussRun: (roundTable: any) =>
+    ipcRenderer.invoke('discuss:run', roundTable),
+  discussStop: (roundTableId: string) =>
+    ipcRenderer.invoke('discuss:stop', roundTableId),
 
   // Provider CRUD
   providersList: () => ipcRenderer.invoke('providers:list'),
@@ -62,6 +66,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = (_event: any, action: string) => callback(action);
     ipcRenderer.on('menu-action', handler);
     return () => ipcRenderer.removeListener('menu-action', handler);
+  },
+
+  // Discussion runner event listeners (main → renderer)
+  onDiscussMessage: (callback: (msg: any) => void) => {
+    const handler = (_event: any, msg: any) => callback(msg);
+    ipcRenderer.on('discuss:message', handler);
+    return () => ipcRenderer.removeListener('discuss:message', handler);
+  },
+  onDiscussCharacterStart: (callback: (name: string) => void) => {
+    const handler = (_event: any, name: string) => callback(name);
+    ipcRenderer.on('discuss:character-start', handler);
+    return () => ipcRenderer.removeListener('discuss:character-start', handler);
+  },
+  onDiscussComplete: (callback: (result: any) => void) => {
+    const handler = (_event: any, result: any) => callback(result);
+    ipcRenderer.on('discuss:complete', handler);
+    return () => ipcRenderer.removeListener('discuss:complete', handler);
+  },
+  onDiscussError: (callback: (err: any) => void) => {
+    const handler = (_event: any, err: any) => callback(err);
+    ipcRenderer.on('discuss:error', handler);
+    return () => ipcRenderer.removeListener('discuss:error', handler);
   },
 
   // Generic storage

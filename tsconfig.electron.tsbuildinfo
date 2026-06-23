@@ -1,1 +1,1 @@
-{"root":["./electron/crypto.ts","./electron/main.ts","./electron/preload.ts","./electron/providers.ts"],"version":"6.0.3"}
+{"root":["./electron/crypto.ts","./electron/data-store.ts","./electron/discussion-runner.ts","./electron/main.ts","./electron/preload.ts","./electron/providers.ts"],"version":"6.0.3"}

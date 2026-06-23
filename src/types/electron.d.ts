@@ -15,6 +15,8 @@ export interface ElectronAPI {
     messages: { role: string; content: string }[],
     providerId?: string
   ) => Promise<{ content?: string; error?: string; code?: string }>;
+  discussRun: (roundTable: any) => Promise<{ ok: boolean }>;
+  discussStop: (roundTableId: string) => Promise<{ ok: boolean }>;
 
   // Provider CRUD
   providersList: () => Promise<ProviderConfig[]>;
@@ -47,6 +49,12 @@ export interface ElectronAPI {
 
   // Menu action listener (main → renderer)
   onMenuAction: (callback: (action: string) => void) => () => void;
+
+  // Discussion runner event listeners (main → renderer)
+  onDiscussMessage: (callback: (msg: any) => void) => () => void;
+  onDiscussCharacterStart: (callback: (name: string) => void) => () => void;
+  onDiscussComplete: (callback: (result: any) => void) => () => void;
+  onDiscussError: (callback: (err: any) => void) => () => void;
 
   // Generic storage
   storageGet: (key: string) => Promise<unknown>;

@@ -1,8 +1,9 @@
 // ===== AI 圆桌模拟器 — Discussion State Hook =====
+// 新版：通过 IPC 启动/停止讨论，通过事件订阅消息流
+// 支持多圆桌并发，支持离开页面不中断
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Message, RoundTable } from '@/lib/types';
-import { generateDiscussion } from '@/lib/discussion-engine';
 import { generateId } from '@/lib/types';
 import { saveMessages } from '@/lib/storage';
 import { buildCharacterSpeechPrompt, buildSystemPrompt } from '@/lib/prompts';
@@ -26,12 +27,20 @@ export function useDiscussion() {
   const [failedCharacters, setFailedCharacters] = useState<FailedCharacter[]>([]);
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus>('idle');
 
-  const abortRef = useRef<AbortController | null>(null);
   const messagesRef = useRef<Message[]>([]);
   const roundTableRef = useRef<RoundTable | null>(null);
+  const cleanupRef = useRef<(() => void)[]>([]);
 
   // Keep messagesRef in sync
   messagesRef.current = messages;
+
+  // Cleanup listeners on unmount
+  useEffect(() => {
+    return () => {
+      cleanupRef.current.forEach((fn) => fn());
+      cleanupRef.current = [];
+    };
+  }, []);
 
   const onMessage = useCallback((msg: Message) => {
     setMessages((prev) => {
@@ -41,7 +50,6 @@ export function useDiscussion() {
     });
     setCurrentRound(msg.round);
 
-    // Track failed characters
     if (msg.error && msg.characterId !== 'host') {
       setFailedCharacters((prev) => {
         const exists = prev.find((f) => f.name === msg.characterName);
@@ -75,42 +83,60 @@ export function useDiscussion() {
       setFailedCharacters([]);
       roundTableRef.current = roundTable;
 
-      const controller = new AbortController();
-      abortRef.current = controller;
+      // Set up event listeners
+      const cleanup: (() => void)[] = [];
 
-      try {
-        await generateDiscussion(roundTable, onMessage, {
-          signal: controller.signal,
-          onCharacterStart,
-        });
+      const unsubMsg = window.electronAPI.onDiscussMessage((msg: Message) => {
+        onMessage(msg);
+      });
+      cleanup.push(unsubMsg);
 
-        if (controller.signal.aborted) {
-          setGenerateStatus('idle');
-          setIsRunning(false);
-        } else {
-          setIsComplete(true);
-          setGenerateStatus('idle');
-          setIsRunning(false);
-          setCurrentCharacter(null);
-        }
-      } catch (err: any) {
-        if (err.name === 'AbortError') {
-          setGenerateStatus('idle');
-        } else {
-          setError(err.message || '讨论生成失败');
-          setGenerateStatus('error');
-        }
+      const unsubChar = window.electronAPI.onDiscussCharacterStart((name: string) => {
+        onCharacterStart(name);
+      });
+      cleanup.push(unsubChar);
+
+      const unsubComplete = window.electronAPI.onDiscussComplete(() => {
+        setIsComplete(true);
+        setGenerateStatus('idle');
         setIsRunning(false);
         setCurrentCharacter(null);
+        cleanup.forEach((fn) => fn());
+        cleanupRef.current = [];
+      });
+      cleanup.push(unsubComplete);
+
+      const unsubError = window.electronAPI.onDiscussError((err: any) => {
+        setError(err.error || '讨论生成失败');
+        setGenerateStatus('error');
+        setIsRunning(false);
+        setCurrentCharacter(null);
+        cleanup.forEach((fn) => fn());
+        cleanupRef.current = [];
+      });
+      cleanup.push(unsubError);
+
+      cleanupRef.current = cleanup;
+
+      // Start the discussion in the main process
+      try {
+        await window.electronAPI.discussRun(roundTable);
+      } catch (err: any) {
+        setError(err.message || '启动讨论失败');
+        setGenerateStatus('error');
+        setIsRunning(false);
+        setCurrentCharacter(null);
+        cleanup.forEach((fn) => fn());
+        cleanupRef.current = [];
       }
     },
     [onMessage, onCharacterStart]
   );
 
   const stop = useCallback(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
+    if (roundTableRef.current) {
       setGenerateStatus('stopping');
+      window.electronAPI.discussStop(roundTableRef.current.id);
       setIsRunning(false);
       setCurrentCharacter(null);
     }
@@ -118,25 +144,19 @@ export function useDiscussion() {
 
   const retryCharacter = useCallback(
     async (characterName: string) => {
-      // Find the failed message for this character
       const failedMsg = messagesRef.current.find(
         (m) => m.characterName === characterName && m.error
       );
       if (!failedMsg || !roundTableRef.current) return;
 
-      // Remove the failed message
       const filtered = messagesRef.current.filter((m) => m.id !== failedMsg.id);
       setMessages(filtered);
       messagesRef.current = filtered;
       setFailedCharacters((prev) => prev.filter((f) => f.name !== characterName));
 
-      // Regenerate just this character
       setGenerateStatus('generating');
       setIsRunning(true);
       setCurrentCharacter(characterName);
-
-      const controller = new AbortController();
-      abortRef.current = controller;
 
       try {
         const systemPrompt = buildSystemPrompt();
@@ -187,9 +207,7 @@ export function useDiscussion() {
       setGenerateStatus('idle');
       setIsRunning(false);
       setCurrentCharacter(null);
-      abortRef.current = null;
 
-      // Save updated messages
       if (roundTableRef.current) {
         await saveMessages(roundTableRef.current.id, messagesRef.current);
       }
@@ -198,6 +216,8 @@ export function useDiscussion() {
   );
 
   const reset = useCallback(() => {
+    cleanupRef.current.forEach((fn) => fn());
+    cleanupRef.current = [];
     setMessages([]);
     setIsRunning(false);
     setError('');
@@ -206,7 +226,6 @@ export function useDiscussion() {
     setCurrentCharacter(null);
     setFailedCharacters([]);
     setGenerateStatus('idle');
-    abortRef.current = null;
     messagesRef.current = [];
   }, []);
 

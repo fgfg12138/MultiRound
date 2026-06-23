@@ -5,6 +5,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import Store from 'electron-store';
 import { callProviderLLM, testProviderConnection, encryptProvider, decryptProvider, maskProviderForUI, ProviderConfig, StoredProviderConfig } from './providers.js';
+import { startDiscussion, stopDiscussion } from './discussion-runner.js';
+import { getDataDir, ensureDir, atomicWriteJson, loadIndex, saveIndex } from './data-store.js';
 
 interface Schema {
   [key: string]: unknown;
@@ -302,40 +304,6 @@ ipcMain.handle('storage:list', async (_event, prefix: string) => {
 });
 
 // ===== File-based Data Storage (roundtables & messages) =====
-
-function getDataDir(): string {
-  if (process.env.NODE_ENV === 'development' || process.env.VITE_DEV_SERVER_URL) {
-    return path.join(process.cwd(), 'data');
-  }
-  return path.join(app.getPath('userData'), 'data');
-}
-
-function ensureDir(dir: string): void {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
-
-/** Atomically write a JSON file: write to .tmp then rename to final path.
- *  Falls back to direct write if rename fails (cross-device edge case).
- */
-function atomicWriteJson(filePath: string, data: unknown): void {
-  const tmpPath = filePath + '.tmp';
-  const content = JSON.stringify(data, null, 2) + '\n';
-  // Write to temp file first
-  fs.writeFileSync(tmpPath, content, 'utf-8');
-  // Rename to final path (atomic on same filesystem)
-  try {
-    fs.renameSync(tmpPath, filePath);
-  } catch {
-    // Fallback: direct write if rename fails (e.g. cross-device)
-    fs.writeFileSync(filePath, content, 'utf-8');
-    // Clean up .tmp if it still exists
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
-  }
-}
-
-/** Clean up any leftover .tmp file for a given base filename */
 function cleanTmp(dataDir: string, filename: string): void {
   try { fs.unlinkSync(path.join(dataDir, `${filename}.json.tmp`)); } catch { /* ignore */ }
   try { fs.unlinkSync(path.join(dataDir, `${filename}_messages.json.tmp`)); } catch { /* ignore */ }
@@ -353,22 +321,6 @@ function backupBeforeMigrate(dataDir: string, filename: string): void {
       fs.copyFileSync(srcPath, backupPath);
     } catch { /* ignore — migration continues without backup */ }
   }
-}
-
-/** Load the index file that maps roundtable UUIDs → human-readable filenames */
-function loadIndex(dataDir: string): Record<string, string> {
-  ensureDir(dataDir);
-  const indexPath = path.join(dataDir, '_index.json');
-  try {
-    return JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
-  } catch {
-    return {};
-  }
-}
-
-function saveIndex(dataDir: string, index: Record<string, string>): void {
-  const indexPath = path.join(dataDir, '_index.json');
-  atomicWriteJson(indexPath, index);
 }
 
 /** Sanitize a string for use as a filename.
@@ -890,6 +842,19 @@ ipcMain.handle('roundtables:export', async (_event, id: string) => {
   }
   return { content: lines.join('\n') };
 });
+
+// ===== Discussion Runner =====
+
+ipcMain.handle('discuss:run', async (_event, roundTable: any) => {
+  await startDiscussion(roundTable);
+  return { ok: true };
+});
+
+ipcMain.handle('discuss:stop', async (_event, roundTableId: string) => {
+  stopDiscussion(roundTableId);
+  return { ok: true };
+});
+
 
 
 // ===== App Lifecycle =====
