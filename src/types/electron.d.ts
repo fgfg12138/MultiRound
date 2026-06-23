@@ -18,6 +18,8 @@ export interface ElectronAPI {
   discussRun: (roundTable: any) => Promise<{ ok: boolean }>;
   discussStop: (roundTableId: string) => Promise<{ ok: boolean }>;
   discussUserHostInput: (roundTableId: string, content: string) => Promise<{ ok: boolean }>;
+  discussPause: (roundTableId: string) => Promise<{ ok: boolean }>;
+  discussResume: (roundTableId: string) => Promise<{ ok: boolean }>;
 
   // Provider CRUD
   providersList: () => Promise<ProviderConfig[]>;
@@ -47,7 +49,11 @@ export interface ElectronAPI {
   dataExportRoundtable: (id: string) => Promise<{ content?: string; error?: string }>;
   dataRepairIndex: () => Promise<{ repaired: number; removed: number; errors: string[] }>;
   dataOpenDirectory: () => Promise<void>;
-  openMarkdownFile: () => Promise<{ path: string; content: string } | null>;
+  openMarkdownFile: () => Promise<
+    | { ok: true; path: string; filename: string; content: string }
+    | { ok: false; error: string }
+    | null
+  >;
 
   // Menu action listener (main → renderer)
   onMenuAction: (callback: (action: string) => void) => () => void;
@@ -57,7 +63,8 @@ export interface ElectronAPI {
   onDiscussCharacterStart: (callback: (name: string) => void) => () => void;
   onDiscussComplete: (callback: (result: any) => void) => () => void;
   onDiscussError: (callback: (err: any) => void) => () => void;
-  onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number }) => void) => () => void;
+  onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number; phase?: string }) => void) => () => void;
+  onDiscussPaused: (callback: (info: { roundTableId: string; round: number }) => void) => () => void;
 
   // Generic storage
   storageGet: (key: string) => Promise<unknown>;

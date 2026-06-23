@@ -186,11 +186,24 @@ const store = new Store();
 const PROVIDER_PREFIX = 'provider:';
 const sessions = new Map<string, AbortController>();
 const pendingHostInputs = new Map<string, (content: string) => void>();
+const pausedSessions = new Map<string, () => void>();
 
 export function injectUserHostInput(roundTableId: string, content: string): boolean {
   const resolve = pendingHostInputs.get(roundTableId);
   if (resolve) { resolve(content); pendingHostInputs.delete(roundTableId); return true; }
   return false;
+}
+
+export function pauseDiscussion(id: string): void {
+  if (sessions.has(id) && !pausedSessions.has(id)) {
+    pausedSessions.set(id, null as any);
+  }
+}
+
+export function resumeDiscussion(id: string): void {
+  const resolve = pausedSessions.get(id);
+  if (resolve) resolve();
+  pausedSessions.delete(id);
 }
 
 function genId(): string { return crypto.randomUUID(); }
@@ -282,6 +295,15 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
       if (sig?.aborted) throw new Error('生成已中止');
       for (const ch of rt.characters) {
         if (sig?.aborted) throw new Error('生成已中止');
+        // Pause check: wait while paused
+        while (pausedSessions.has(rt.id)) {
+          send('discuss:paused', { roundTableId: rt.id, round });
+          await new Promise<void>((resolve) => {
+            if (sig?.aborted) { resolve(); return; }
+            pausedSessions.set(rt.id, resolve);
+          });
+          if (sig?.aborted) throw new Error('生成已中止');
+        }
         send('discuss:character-start', ch.name);
         const r = await tryCall(ch.name, sys, buildCharSpeech(rt.topic, ch, round, all), ch.providerId, ch.temperature);
         const ct = r.content || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);

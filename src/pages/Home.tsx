@@ -53,8 +53,9 @@ export default function Home() {
   }, [searchQuery, history]);
 
   async function handleDelete(id: string, topic: string) {
+    if (!window.confirm(`确定删除「${topic.slice(0, 30)}」吗？\n聊天记录也会一起删除。`)) return;
     await deleteRoundTable(id);
-    showToast({ type: 'info', message: `已删除「${topic.slice(0, 20)}...」` });
+    showToast({ type: 'info', message: '已删除' });
     loadHistory();
   }
 
@@ -249,7 +250,7 @@ export default function Home() {
               >
                 <h3 className="font-medium text-gray-900 text-sm truncate" title={rt.topic}>{rt.topic}</h3>
                 <p className="text-xs text-gray-400 mt-1">
-                  {(rt.characters || []).length} 个角色 · {rt.totalRounds || 3} 轮 ·{' '}
+                  {(rt.characters || []).length} 个角色 · {rt.totalRounds === 0 ? '不预设轮数' : `${rt.totalRounds || 3} 轮`} ·{' '}
                   {new Date(rt.createdAt || Date.now()).toLocaleDateString('zh-CN')}
                 </p>
               </button>

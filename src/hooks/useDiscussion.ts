@@ -26,6 +26,8 @@ export function useDiscussion() {
   const [currentCharacter, setCurrentCharacter] = useState<string | null>(null);
   const [failedCharacters, setFailedCharacters] = useState<FailedCharacter[]>([]);
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus>('idle');
+  const [isPaused, setIsPaused] = useState(false);
+  const [awaitingHostInput, setAwaitingHostInput] = useState<{ round: number; phase?: string } | null>(null);
 
   const messagesRef = useRef<Message[]>([]);
   const roundTableRef = useRef<RoundTable | null>(null);
@@ -126,6 +128,14 @@ export function useDiscussion() {
       });
       cleanup.push(unsubError);
 
+      const unsubPaused = window.electronAPI.onDiscussPaused(() => setIsPaused(true));
+      cleanup.push(unsubPaused);
+
+      const unsubAwait = window.electronAPI.onDiscussAwaitingHostInput((info) => {
+        setAwaitingHostInput(info);
+      });
+      cleanup.push(unsubAwait);
+
       cleanupRef.current = cleanup;
 
       // Start the discussion in the main process
@@ -152,6 +162,25 @@ export function useDiscussion() {
       setCurrentCharacter(null);
     }
   }, []);
+
+  const pause = useCallback(() => {
+    if (roundTableRef.current) {
+      window.electronAPI.discussPause(roundTableRef.current.id);
+    }
+  }, []);
+
+  const resume = useCallback(() => {
+    if (roundTableRef.current) {
+      window.electronAPI.discussResume(roundTableRef.current.id);
+      setIsPaused(false);
+    }
+  }, []);
+
+  const sendUserHostInput = useCallback(async (content: string) => {
+    if (!roundTableRef.current || !awaitingHostInput) return;
+    await window.electronAPI.discussUserHostInput(roundTableRef.current.id, content);
+    setAwaitingHostInput(null);
+  }, [awaitingHostInput]);
 
   const retryCharacter = useCallback(
     async (characterName: string) => {
@@ -250,9 +279,14 @@ export function useDiscussion() {
     currentCharacter,
     failedCharacters,
     generateStatus,
+    isPaused,
+    awaitingHostInput,
     stoppedByUser: stoppedByUserRef,
     startDiscussion,
     stop,
+    pause,
+    resume,
+    sendUserHostInput,
     retryCharacter,
     reset,
   };

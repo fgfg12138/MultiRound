@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 import fs from 'node:fs';
 import Store from 'electron-store';
 import { callProviderLLM, testProviderConnection, encryptProvider, decryptProvider, maskProviderForUI, ProviderConfig, StoredProviderConfig } from './providers.js';
-import { startDiscussion, stopDiscussion, injectUserHostInput } from './discussion-runner.js';
+import { startDiscussion, stopDiscussion, pauseDiscussion, resumeDiscussion, injectUserHostInput } from './discussion-runner.js';
 import { getDataDir, ensureDir, atomicWriteJson, loadIndex, saveIndex } from './data-store.js';
 
 interface Schema {
@@ -891,6 +891,16 @@ ipcMain.handle('discuss:stop', async (_event, roundTableId: string) => {
 ipcMain.handle('discuss:user-host-input', async (_event, roundTableId: string, content: string) => {
   const ok = injectUserHostInput(roundTableId, content);
   return { ok };
+});
+
+ipcMain.handle('discuss:pause', async (_event, roundTableId: string) => {
+  pauseDiscussion(roundTableId);
+  return { ok: true };
+});
+
+ipcMain.handle('discuss:resume', async (_event, roundTableId: string) => {
+  resumeDiscussion(roundTableId);
+  return { ok: true };
 });
 
 

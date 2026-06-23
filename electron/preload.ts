@@ -16,6 +16,10 @@ try {
       ipcRenderer.invoke('discuss:stop', roundTableId),
     discussUserHostInput: (roundTableId: string, content: string) =>
       ipcRenderer.invoke('discuss:user-host-input', roundTableId, content),
+    discussPause: (roundTableId: string) =>
+      ipcRenderer.invoke('discuss:pause', roundTableId),
+    discussResume: (roundTableId: string) =>
+      ipcRenderer.invoke('discuss:resume', roundTableId),
 
     // Provider CRUD
     providersList: () => ipcRenderer.invoke('providers:list'),
@@ -94,10 +98,15 @@ try {
       ipcRenderer.on('discuss:error', handler);
       return () => ipcRenderer.removeListener('discuss:error', handler);
     },
-    onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number }) => void) => {
+    onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number; phase?: string }) => void) => {
       const handler = (_event: any, info: any) => callback(info);
       ipcRenderer.on('discuss:awaiting-host-input', handler);
       return () => ipcRenderer.removeListener('discuss:awaiting-host-input', handler);
+    },
+    onDiscussPaused: (callback: (info: { roundTableId: string; round: number }) => void) => {
+      const handler = (_event: any, info: any) => callback(info);
+      ipcRenderer.on('discuss:paused', handler);
+      return () => ipcRenderer.removeListener('discuss:paused', handler);
     },
 
     // Generic storage

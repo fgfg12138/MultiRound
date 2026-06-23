@@ -25,6 +25,7 @@ export default function Settings() {
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [plaintextKeys, setPlaintextKeys] = useState<Record<string, string>>({});
   const [keyCountdowns, setKeyCountdowns] = useState<Record<string, number>>({});
+  const [testStatus, setTestStatus] = useState<Record<string, 'testing' | 'success' | 'error' | null>>({});
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -96,12 +97,16 @@ export default function Settings() {
 
   async function handleTest(config: ProviderConfig) {
     setTestingId(config.id);
+    setTestStatus(prev => ({ ...prev, [config.id]: 'testing' }));
     const result = await testProvider(config);
     setTestingId(null);
+    setLastTestTime(prev => ({ ...prev, [config.id]: new Date().toLocaleTimeString() }));
 
     if (result.content) {
+      setTestStatus(prev => ({ ...prev, [config.id]: 'success' }));
       showToast({ type: 'success', message: `✅ ${config.name} 连接成功！` });
     } else {
+      setTestStatus(prev => ({ ...prev, [config.id]: 'error' }));
       showToast({ type: 'error', message: `❌ ${config.name} ${result.error || '连接失败'}` });
     }
   }
@@ -337,8 +342,11 @@ export default function Settings() {
                           默认
                         </span>
                       )}
-                      {/* Connection status indicator (last test result) */}
-                      <span className="w-2 h-2 rounded-full bg-gray-300" title="未测试" />
+                      {/* Connection status indicator */}
+                      {testStatus[p.id] === 'testing' && <span className="w-2 h-2 rounded-full bg-yellow-400" title="测试中..." />}
+                      {testStatus[p.id] === 'success' && <span className="w-2 h-2 rounded-full bg-green-500" title={`最后测试: ${lastTestTime[p.id]}`} />}
+                      {testStatus[p.id] === 'error' && <span className="w-2 h-2 rounded-full bg-red-500" title={`失败: ${lastTestTime[p.id]}`} />}
+                      {!testStatus[p.id] && <span className="w-2 h-2 rounded-full bg-gray-300" title="未测试" />}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs text-gray-500">

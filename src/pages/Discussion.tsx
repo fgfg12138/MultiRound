@@ -11,6 +11,7 @@ import MessageBubble from '@/components/MessageBubble';
 import RoundIndicator from '@/components/RoundIndicator';
 import {
   Play,
+  Pause,
   Loader2,
   AlertCircle,
   ChevronRight,
@@ -39,7 +40,9 @@ export default function Discussion() {
   const {
     messages, isRunning, error, currentRound, isComplete,
     currentCharacter, failedCharacters, generateStatus,
-    startDiscussion, stop, retryCharacter, reset,
+    isPaused, awaitingHostInput,
+    startDiscussion, stop, pause, resume, sendUserHostInput,
+    retryCharacter, reset,
     stoppedByUser,
   } = useDiscussion();
   const { showToast } = useToast();
@@ -225,13 +228,23 @@ export default function Discussion() {
                 )}
 
                 {isRunning && (
-                  <button
-                    onClick={stop}
-                    className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors shadow-lg shadow-red-200"
-                  >
-                    <Square className="w-5 h-5" />
-                    停止生成
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {isPaused ? (
+                      <button onClick={resume}
+                        className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors shadow-lg shadow-green-200">
+                        <Play className="w-5 h-5" />继续
+                      </button>
+                    ) : (
+                      <button onClick={pause}
+                        className="flex items-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors shadow-lg shadow-amber-200">
+                        <Pause className="w-5 h-5" />暂停
+                      </button>
+                    )}
+                    <button onClick={stop}
+                      className="flex items-center gap-2 px-6 py-3 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition-colors shadow-lg shadow-red-200">
+                      <Square className="w-5 h-5" />停止生成
+                    </button>
+                  </div>
                 )}
 
                 {isComplete && (
@@ -242,6 +255,17 @@ export default function Discussion() {
                     查看总结
                     <ChevronRight className="w-5 h-5" />
                   </button>
+                )}
+
+                {awaitingHostInput && (
+                  <div className="flex gap-2 w-full max-w-xl">
+                    <input id="hostInput" type="text"
+                      placeholder={awaitingHostInput.phase === 'opening' ? '输入你的开场白...' : '输入你的主持追问或指令...'}
+                      onKeyDown={e => { if (e.key === 'Enter') { sendUserHostInput(e.currentTarget.value); e.currentTarget.value = ''; }}}
+                      className="flex-1 px-3 py-2 text-sm border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                    <button onClick={() => { const el = document.getElementById('hostInput') as HTMLInputElement; if (el) { sendUserHostInput(el.value); el.value = ''; }}}
+                      className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium">发送</button>
+                  </div>
                 )}
               </div>
 
@@ -303,7 +327,7 @@ export default function Discussion() {
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">轮数</span>
-                <span className="text-gray-700">{roundTable.totalRounds} 轮</span>
+                <span className="text-gray-700">{roundTable.totalRounds === 0 ? '不预设，最多 999 轮' : `${roundTable.totalRounds} 轮`}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-400">状态</span>

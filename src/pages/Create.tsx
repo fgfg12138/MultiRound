@@ -160,6 +160,17 @@ export default function Create() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">场景描述</label>
               <textarea value={scenarioDesc} onChange={e => setScenarioDesc(e.target.value)} placeholder="描述讨论的背景、上下文和期望方向..." rows={3} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-none" />
+              <button type="button"
+                onClick={async () => {
+                  try {
+                    const result = await window.electronAPI?.openMarkdownFile?.();
+                    if (!result) return;
+                    if (!result.ok) { showToast({ type: 'error', message: result.error }); return; }
+                    setScenarioDesc(result.content);
+                    showToast({ type: 'success', message: `已导入 ${result.filename}` });
+                  } catch (err: any) { showToast({ type: 'error', message: err?.message || '导入失败' }); }
+                }}
+                className="text-xs text-purple-600 hover:text-purple-800 underline mt-1">从 Markdown 导入</button>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">氛围</label>

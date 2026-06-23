@@ -11,6 +11,29 @@ export default function RoundIndicator({
   totalRounds,
   status,
 }: RoundIndicatorProps) {
+  const unlimited = totalRounds === 0;
+
+  if (unlimited) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-700">讨论进度</h3>
+          <span className="text-xs text-gray-400">不预设轮数</span>
+        </div>
+
+        <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+          <div className="h-full rounded-full bg-purple-500 animate-pulse" style={{ width: '100%' }} />
+        </div>
+
+        <div className="text-center">
+          <span className="text-xs text-gray-500">
+            {status === 'completed' ? '讨论已结束' : `第 ${currentRound} 轮进行中 · 最多 999 轮`}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const progress = totalRounds > 0 ? (currentRound / totalRounds) * 100 : 0;
 
   const statusLabel =
