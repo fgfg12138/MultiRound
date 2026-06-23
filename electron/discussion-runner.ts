@@ -265,6 +265,17 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
       all.push(m); send('discuss:message', m);
     }
 
+    // User host mode: wait for opening statement before starting rounds
+    if (rt.host?.mode === 'user') {
+      send('discuss:awaiting-host-input', { roundTableId: rt.id, round: 0, phase: 'opening' });
+      const userOpening = await new Promise<string>((resolve) => {
+        pendingHostInputs.set(rt.id, resolve);
+      });
+      if (sig?.aborted) throw new Error('生成已中止');
+      const openingMsg = buildMsg(rt.id, 0, 'host', rt.host.name, 'opening', userOpening);
+      all.push(openingMsg); send('discuss:message', openingMsg);
+    }
+
     const cap = rt.totalRounds === 0 ? 999 : rt.totalRounds;
     let round = 1;
     while (round <= cap) {

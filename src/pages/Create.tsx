@@ -195,7 +195,7 @@ export default function Create() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">模型厂商</label>
                 <select value={hostProviderId} onChange={e => setHostProviderId(e.target.value)} className="w-full min-w-[160px] px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent bg-white">
-                  {providers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.model})</option>)}
+                  {providers.map(p => <option key={p.id} value={p.id}>{p.model ? `${p.name} — ${p.model}` : p.name}</option>)}
                 </select>
               </div>
             </div>
@@ -249,11 +249,11 @@ export default function Create() {
                         <td className="py-2 px-2 min-w-[200px]"><textarea value={c.persona} onChange={e => updateCharacter(i, 'persona', e.target.value)} placeholder="角色人设：性格、背景、立场、说话方式..." rows={2} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" /></td>
                         <td className="py-2 px-2">
                           <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full min-w-[160px] px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white">
-                            {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                            {providers.map(p => <option key={p.id} value={p.id}>{p.model ? `${p.name} — ${p.model}` : p.name}</option>)}
                           </select>
                         </td>
                         <td className="py-2 px-2">
-                          <select value={c.teamId || ''} onChange={e => updateCharacter(i, 'teamId', e.target.value)} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white">
+                          <select value={c.teamId || ''} onChange={e => updateCharacter(i, 'teamId', e.target.value)} className="w-full min-w-[80px] px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white">
                             <option value="">无</option>
                             {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                           </select>

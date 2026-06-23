@@ -74,20 +74,18 @@ export default function Home() {
 
   async function handleReRun(rt: any) {
     const newRt = {
-      id: generateId(),
-      topic: rt.topic,
-      host: rt.host || { name: '主持人', style: '中立、控场' },
+      ...rt,
+      id: rt.id,
       characters: (rt.characters || []).map((c: any) => ({
         ...c,
-        id: generateId(),
+        id: c.id,
       })),
-      totalRounds: rt.totalRounds || 3,
       status: 'created' as const,
       createdAt: Date.now(),
     };
     await saveRoundTable(newRt as any);
-    showToast({ type: 'success', message: '已复用配置，正在创建新圆桌...' });
-    navigate(`/discussion/${newRt.id}`);
+    showToast({ type: 'success', message: '正在重新运行...' });
+    navigate(`/discussion/${rt.id}`);
   }
 
   return (
@@ -176,6 +174,25 @@ export default function Home() {
           LLM 厂商设置
         </button>
       </section>
+
+      {/* In-progress sessions */}
+      {history.filter(rt => rt.status === 'discussing').length > 0 && (
+        <section className="px-4 max-w-4xl mx-auto w-full mb-6">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+            进行中
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {history.filter(rt => rt.status === 'discussing').map(rt => (
+              <button key={rt.id} onClick={() => navigate(`/discussion/${rt.id}`)}
+                className="flex items-center gap-3 px-4 py-3 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors">
+                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                <span className="text-sm font-medium text-purple-800 truncate max-w-[160px]">{rt.topic}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* History section */}
       <section className="px-4 max-w-4xl mx-auto w-full pb-12">
