@@ -2,17 +2,15 @@
 
 import type { ProviderConfig } from '@/types/electron.d';
 
-const api = () => window.electronAPI;
-
-function checkApi() {
+const api = () => {
   if (!window.electronAPI) {
     throw new Error('请在 Electron 桌面应用中运行此功能');
   }
-}
+  return window.electronAPI;
+};
 
 /** 获取所有已配置的 LLM 厂商列表 */
 export async function listProviders(): Promise<ProviderConfig[]> {
-  checkApi();
   try {
     return await api().providersList();
   } catch {

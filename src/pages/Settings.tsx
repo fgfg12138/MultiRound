@@ -14,12 +14,17 @@ import {
 
 const PRESET_INFO = [
   { name: 'DeepSeek', url: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  { name: 'DeepSeek-Reasoner', url: 'https://api.deepseek.com/v1', model: 'deepseek-reasoner' },
   { name: 'OpenAI', url: 'https://api.openai.com/v1', model: 'gpt-4o' },
-  { name: '智谱 GLM', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4' },
+  { name: 'Anthropic', url: 'https://api.anthropic.com/v1', model: 'claude-sonnet-4-20250514' },
+  { name: 'Google', url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' },
+  { name: '智谱 GLM', url: 'https://open.bigmodel.cn/api/paas/v4', model: 'glm-4-plus' },
   { name: '通义千问', url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
-  { name: 'Moonshot', url: 'https://api.moonshot.cn/v1', model: 'moonshot-v1-8k' },
-  { name: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'llama-3.3-70b' },
-  { name: 'SiliconFlow', url: 'https://api.siliconflow.cn/v1', model: 'deepseek-ai/DeepSeek-V3' },
+  { name: 'Moonshot', url: 'https://api.moonshot.cn/v1', model: 'kimi-latest' },
+  { name: 'Groq', url: 'https://api.groq.com/openai/v1', model: 'llama-4-maverick-17b-128e-instruct' },
+  { name: 'SiliconFlow', url: 'https://api.siliconflow.cn/v1', model: 'deepseek-ai/DeepSeek-V3-0324' },
+  { name: 'Mistral', url: 'https://api.mistral.ai/v1', model: 'mistral-large-latest' },
+  { name: '零一万物', url: 'https://api.lingyiwanwu.com/v1', model: 'yi-large' },
 ];
 
 export default function Settings() {

@@ -18,9 +18,27 @@ export const BUILTIN_PROVIDERS: Omit<ProviderConfig, 'apiKey' | 'id'>[] = [
     isCustom: false,
   },
   {
+    name: 'DeepSeek-Reasoner',
+    baseUrl: 'https://api.deepseek.com/v1',
+    model: 'deepseek-reasoner',
+    isCustom: false,
+  },
+  {
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-4o-mini',
+    model: 'gpt-4o',
+    isCustom: false,
+  },
+  {
+    name: 'Anthropic',
+    baseUrl: 'https://api.anthropic.com/v1',
+    model: 'claude-sonnet-4-20250514',
+    isCustom: false,
+  },
+  {
+    name: 'Google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    model: 'gemini-2.5-flash',
     isCustom: false,
   },
   {
@@ -38,19 +56,31 @@ export const BUILTIN_PROVIDERS: Omit<ProviderConfig, 'apiKey' | 'id'>[] = [
   {
     name: 'Moonshot',
     baseUrl: 'https://api.moonshot.cn/v1',
-    model: 'moonshot-v1-auto',
+    model: 'kimi-latest',
     isCustom: false,
   },
   {
     name: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1',
-    model: 'llama-3.3-70b-versatile',
+    model: 'llama-4-maverick-17b-128e-instruct',
     isCustom: false,
   },
   {
     name: 'SiliconFlow',
     baseUrl: 'https://api.siliconflow.cn/v1',
-    model: 'deepseek-ai/DeepSeek-V3',
+    model: 'deepseek-ai/DeepSeek-V3-0324',
+    isCustom: false,
+  },
+  {
+    name: 'Mistral',
+    baseUrl: 'https://api.mistral.ai/v1',
+    model: 'mistral-large-latest',
+    isCustom: false,
+  },
+  {
+    name: '零一万物',
+    baseUrl: 'https://api.lingyiwanwu.com/v1',
+    model: 'yi-large',
     isCustom: false,
   },
 ];
