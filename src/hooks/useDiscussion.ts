@@ -208,8 +208,9 @@ export function useDiscussion() {
             },
           ]);
         }
-      } catch {
-        // ignore
+      } catch (err: any) {
+        setError(err?.message || '重试失败');
+        setGenerateStatus('error');
       }
 
       setGenerateStatus('idle');

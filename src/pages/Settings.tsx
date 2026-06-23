@@ -106,9 +106,13 @@ export default function Settings() {
 
   async function handleDelete(id: string, name: string) {
     setDeletingId(id);
-    await deleteProvider(id);
+    const result = await deleteProvider(id);
     setDeletingId(null);
-    showToast({ type: 'info', message: `已删除 ${name}` });
+    if (result.ok) {
+      showToast({ type: 'info', message: `已删除 ${name}` });
+    } else {
+      showToast({ type: 'error', message: result.error || '删除失败' });
+    }
     await loadProviders();
   }
 
@@ -266,13 +270,22 @@ export default function Settings() {
                     onClick={async () => {
                       if (!formBaseUrl.trim()) { showToast({ type: 'warning', message: '请先填写 Base URL' }); return; }
                       setFormSaving(true);
-                      const result = await window.electronAPI.providersFetchModels({ baseUrl: formBaseUrl.trim(), apiKey: formApiKey.trim() });
-                      setFormSaving(false);
-                      if (result.ok && result.models?.length) {
-                        setFormModel(result.models[0]);
-                        showToast({ type: 'success', message: `找到 ${result.models.length} 个模型，已填入第一个` });
-                      } else {
-                        showToast({ type: 'error', message: result.error || '获取失败' });
+                      try {
+                        if (!window.electronAPI?.providersFetchModels) {
+                          showToast({ type: 'error', message: '此功能仅在 Electron 桌面应用中可用' });
+                          return;
+                        }
+                        const result = await window.electronAPI.providersFetchModels({ baseUrl: formBaseUrl.trim(), apiKey: formApiKey.trim() });
+                        if (result.ok && result.models?.length) {
+                          setFormModel(result.models[0]);
+                          showToast({ type: 'success', message: `找到 ${result.models.length} 个模型，已填入第一个` });
+                        } else {
+                          showToast({ type: 'error', message: result.error || '获取失败，请手动输入模型名' });
+                        }
+                      } catch (err: any) {
+                        showToast({ type: 'error', message: err?.message || '获取模型列表失败' });
+                      } finally {
+                        setFormSaving(false);
                       }
                     }}
                     disabled={formSaving}

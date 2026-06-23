@@ -31,8 +31,9 @@ export default function Home() {
       let tables = await listRoundTables();
       setHistory(tables);
       setFiltered(tables);
-    } catch {
-      // empty
+    } catch (err: any) {
+      console.error('[loadHistory]', err);
+      showToast?.({ type: 'error', message: '加载历史记录失败' });
     }
     setLoaded(true);
   }

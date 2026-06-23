@@ -12,7 +12,8 @@ const api = () => {
 export async function listProviders(): Promise<ProviderConfig[]> {
   try {
     return await api().providersList();
-  } catch {
+  } catch (e: any) {
+    console.error('[listProviders]', e);
     return [];
   }
 }
@@ -21,19 +22,24 @@ export async function saveProvider(config: ProviderConfig): Promise<{ ok: boolea
   try {
     return await api().providersSave(config);
   } catch (e: any) {
-    return { ok: false, error: e.message || '保存失败' };
+    return { ok: false, error: e.message || '保存失败（请确认在 Electron 中运行）' };
   }
 }
 
-export async function deleteProvider(id: string): Promise<void> {
-  try { await api().providersDelete(id); } catch {}
+export async function deleteProvider(id: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await api().providersDelete(id);
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e.message || '删除失败（请确认在 Electron 中运行）' };
+  }
 }
 
 export async function testProvider(config: ProviderConfig): Promise<{ content?: string; error?: string; code?: string }> {
   try {
     return await api().providersTest(config);
   } catch (e: any) {
-    return { error: e.message || '测试失败', code: 'RENDERER_ERROR' };
+    return { error: e.message || '测试失败（请确认在 Electron 中运行）', code: 'RENDERER_ERROR' };
   }
 }
 
