@@ -1,6 +1,6 @@
 // ===== AI 圆桌模拟器 — Type Definitions =====
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 // ===== 1. 场景 =====
 export interface Scenario {
@@ -16,7 +16,26 @@ export interface Team {
   color: string;
 }
 
-// ===== 3. 角色（扩展，保留所有旧字段） =====
+// ===== 3. 隐藏身份 / 私有记忆 =====
+export type SecretRole = 'normal' | 'fraudster' | 'detective' | 'observer';
+
+export interface CharacterSecret {
+  secretRole: SecretRole;
+  publicGoal: string;
+  privateGoal: string;
+  knownSecrets: string[];
+  isAlive: boolean;
+  revealed: boolean;
+}
+
+export interface CharacterMemory {
+  privateMemory: string[];
+  publicMemory: string[];
+  suspicionMap: Record<string, number>;
+  strategyPlan: string;
+}
+
+// ===== 4. 角色（扩展，保留所有旧字段） =====
 export interface Character {
   id: string;
   name: string;
@@ -33,10 +52,15 @@ export interface Character {
   constraints?: string;
   teamId?: string;
   temperature?: number;      // 0.0-2.0，默认走厂商配置
+
+  // V3: 隐藏身份和运行记忆。代码层隔离，不能只写在人设里。
+  secret?: CharacterSecret;
+  memory?: CharacterMemory;
 }
 
-// ===== 4. 主持人 =====
+// ===== 5. 主持人 =====
 export type HostMode = 'visible' | 'invisible' | 'user';
+export type HostSecretAccess = 'public' | 'judge';
 
 export interface Host {
   name: string;
@@ -46,9 +70,10 @@ export interface Host {
   temperature?: number;              // 0.0-2.0
   allowUserInterruption?: boolean;
   autoIntervene?: boolean;
+  secretAccess?: HostSecretAccess;   // V3: judge = 上帝/裁判主持人，可读全部秘密但公开发言不能泄露
 }
 
-// ===== 5. 规则 =====
+// ===== 6. 规则 =====
 export type SpeakOrder = 'sequential' | 'free' | 'host-assigned';
 
 export interface RuleSet {
@@ -62,7 +87,7 @@ export interface RuleSet {
   forbiddenTopics?: string[];
 }
 
-// ===== 6. 目标 =====
+// ===== 7. 目标 =====
 export type GoalType = 'consensus' | 'decision' | 'analysis'
                      | 'ranking' | 'debate' | 'creative' | 'custom';
 
@@ -72,7 +97,7 @@ export interface Goal {
   successCriteria?: string;
 }
 
-// ===== 7. 结果 =====
+// ===== 8. 结果 =====
 export interface StructuredResult {
   conclusion: string;
   consensusPoints: string[];
@@ -85,23 +110,23 @@ export interface StructuredResult {
   }>;
 }
 
-// ===== 8. 运行时控制 =====
+// ===== 9. 运行时控制 =====
 export interface RuntimeControl {
   currentHostMode: HostMode;
   userOverrideActive: boolean;
   temporaryRules?: Partial<RuleSet>;
 }
 
-// ===== 9. RoundTable =====
+// ===== 10. RoundTable =====
 export interface RoundTable {
   id: string;
-  schemaVersion: number;    // NEW: 2
+  schemaVersion: number;    // V3
 
   // V1 兼容字段（保留，引擎/UI 继续使用）
   topic: string;
   totalRounds: number;
 
-  // V2 新字段
+  // V2+ 新字段
   scenario: Scenario;
   host: Host;
   characters: Character[];
@@ -116,7 +141,7 @@ export interface RoundTable {
   createdAt: number;
 }
 
-// ===== Message（Phase 12 不修改） =====
+// ===== Message =====
 export interface Message {
   id: string;
   roundTableId: string;
