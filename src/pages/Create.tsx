@@ -1,8 +1,8 @@
-// ===== AI 圆桌模拟器 — Create Roundtable Page (V2) =====
+// ===== AI 圆桌模拟器 — Create Roundtable Page (V3) =====
 
 import { useEffect, useState, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Character, RoundTable, Team } from '@/lib/types';
+import type { Character, RoundTable, Team, SecretRole, CharacterSecret, CharacterMemory } from '@/lib/types';
 import type { ProviderConfig } from '@/types/electron.d';
 import { generateId, CURRENT_SCHEMA_VERSION } from '@/lib/types';
 import { saveRoundTable } from '@/lib/storage';
@@ -12,6 +12,45 @@ import Layout from '@/components/Layout';
 import { Plus, Play, Settings, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
 const TEAM_COLORS = ['#8B5CF6','#EC4899','#10B981','#F59E0B','#3B82F6','#EF4444','#06B6D4','#84CC16'];
+
+function createDefaultSecret(overrides?: Partial<CharacterSecret>): CharacterSecret {
+  return {
+    secretRole: 'normal',
+    publicGoal: '参与公开讨论，判断其他角色的真实意图。',
+    privateGoal: '',
+    knownSecrets: [],
+    isAlive: true,
+    revealed: false,
+    ...overrides,
+  };
+}
+
+function createDefaultMemory(overrides?: Partial<CharacterMemory>): CharacterMemory {
+  return {
+    privateMemory: [],
+    publicMemory: [],
+    suspicionMap: {},
+    strategyPlan: '',
+    ...overrides,
+    suspicionMap: overrides?.suspicionMap || {},
+  };
+}
+
+function withDefaults(c: Character): Character {
+  return {
+    ...c,
+    secret: createDefaultSecret(c.secret),
+    memory: createDefaultMemory(c.memory),
+  };
+}
+
+function parseLines(value: string): string[] {
+  return value.split('\n').map((s) => s.trim()).filter(Boolean);
+}
+
+function toLines(value?: string[]): string {
+  return (value || []).join('\n');
+}
 
 export default function Create() {
   const navigate = useNavigate();
@@ -59,24 +98,36 @@ export default function Create() {
       const dp = p.length > 0 ? p[0].id : '';
       setHostProviderId(dp);
       setCharacters([
-        { id: generateId(), name: '技术派', role: '技术专家', persona: '关注架构、性能与工程实现，务实但有时过于悲观', stance: '', style: '', providerId: dp },
-        { id: generateId(), name: '用户代表', role: '产品经理', persona: '关注需求、体验与商业价值，讨厌空话', stance: '', style: '', providerId: dp },
-        { id: generateId(), name: '市场派', role: '市场分析师', persona: '关注竞品、趋势与增长路径，数据导向', stance: '', style: '', providerId: dp },
+        withDefaults({ id: generateId(), name: '技术派', role: '技术专家', persona: '关注架构、性能与工程实现，务实但有时过于悲观', stance: '', style: '', providerId: dp }),
+        withDefaults({ id: generateId(), name: '用户代表', role: '产品经理', persona: '关注需求、体验与商业价值，讨厌空话', stance: '', style: '', providerId: dp }),
+        withDefaults({ id: generateId(), name: '市场派', role: '市场分析师', persona: '关注竞品、趋势与增长路径，数据导向', stance: '', style: '', providerId: dp }),
       ]);
     });
   }, []);
 
   function addCharacter() {
-    setCharacters([...characters, { id: generateId(), name: '', role: '', persona: '', stance: '', style: '', providerId: hostProviderId }]);
+    setCharacters([...characters, withDefaults({ id: generateId(), name: '', role: '', persona: '', stance: '', style: '', providerId: hostProviderId })]);
   }
   function removeCharacter(idx: number) {
     if (characters.length <= 2) { setError('至少需要 2 个角色'); return; }
     setCharacters(characters.filter((_, i) => i !== idx));
     setError('');
   }
-  function updateCharacter(idx: number, field: keyof Character, value: string) {
+  function updateCharacter<K extends keyof Character>(idx: number, field: K, value: Character[K]) {
     const next = [...characters];
     next[idx] = { ...next[idx], [field]: value };
+    setCharacters(next);
+  }
+  function updateSecret<K extends keyof CharacterSecret>(idx: number, field: K, value: CharacterSecret[K]) {
+    const next = [...characters];
+    const secret = createDefaultSecret(next[idx].secret);
+    next[idx] = { ...next[idx], secret: { ...secret, [field]: value } };
+    setCharacters(next);
+  }
+  function updateMemory<K extends keyof CharacterMemory>(idx: number, field: K, value: CharacterMemory[K]) {
+    const next = [...characters];
+    const memory = createDefaultMemory(next[idx].memory);
+    next[idx] = { ...next[idx], memory: { ...memory, [field]: value } };
     setCharacters(next);
   }
 
@@ -102,11 +153,15 @@ export default function Create() {
         topic: scenarioTitle.trim(),
         totalRounds: actualRounds,
         scenario: { title: scenarioTitle.trim(), description: scenarioDesc.trim(), atmosphere },
-        host: { name: hostName.trim(), style: hostStyle.trim(), mode: hostMode, providerId: hostProviderId || undefined },
-        characters: validChars.map(c => ({
-          ...c, persona: c.persona || [c.role, c.stance, c.style].filter(Boolean).join('；'),
-          teamId: c.teamId || undefined,
-        })),
+        host: { name: hostName.trim(), style: hostStyle.trim(), mode: hostMode, providerId: hostProviderId || undefined, secretAccess: 'judge' },
+        characters: validChars.map(c => {
+          const normalized = withDefaults(c);
+          return {
+            ...normalized,
+            persona: normalized.persona || [normalized.role, normalized.stance, normalized.style].filter(Boolean).join('；'),
+            teamId: normalized.teamId || undefined,
+          };
+        }),
         teams: teams.length > 0 ? teams : undefined,
         rules: {
           roundCount: actualRounds, speakOrder, maxSpeechLength,
@@ -155,7 +210,7 @@ export default function Create() {
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={1} />讨论场景</h2>
             <div>
               <label className="block text-xs text-gray-500 mb-1">主题</label>
-              <input type="text" value={scenarioTitle} onChange={e => setScenarioTitle(e.target.value)} placeholder="例如：下一代 AI 产品的核心竞争力在哪里？" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" required />
+              <input type="text" value={scenarioTitle} onChange={e => setScenarioTitle(e.target.value)} placeholder="例如：AI 欺诈师圆桌博弈" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent" required />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">场景描述</label>
@@ -202,6 +257,7 @@ export default function Create() {
                   <option value="invisible">不可见（仅控场）</option>
                   <option value="user">用户（你作为主持人）</option>
                 </select>
+                <p className="text-[11px] text-gray-400 mt-1">AI 主持人默认使用上帝/裁判视角读取全部秘密，但公开发言不得直接泄露。</p>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">模型厂商</label>
@@ -238,7 +294,7 @@ export default function Create() {
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><SectionNum n={4} />角色列表</h2>
               <button type="button" onClick={addCharacter} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"><Plus className="w-4 h-4" />添加角色</button>
             </div>
-            <p className="text-xs text-gray-400">至少 2 个角色。每个角色可选择不同的 AI 模型。</p>
+            <p className="text-xs text-gray-400">至少 2 个角色。每个角色可选择不同的 AI 模型；高级选项里可配置隐藏身份、私密目标和初始策略。</p>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -252,7 +308,10 @@ export default function Create() {
                   </tr>
                 </thead>
                 <tbody>
-                  {characters.map((c, i) => (
+                  {characters.map((c, i) => {
+                    const secret = createDefaultSecret(c.secret);
+                    const memory = createDefaultMemory(c.memory);
+                    return (
                     <Fragment key={c.id}>
                       <tr className="border-b border-gray-100">
                         <td className="py-2 px-2"><input type="text" value={c.name} onChange={e => updateCharacter(i, 'name', e.target.value)} placeholder="名称" className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></td>
@@ -280,20 +339,74 @@ export default function Create() {
                       </tr>
                       {advancedOpen[i] && (
                         <tr className="bg-gray-50">
-                          <td colSpan={6} className="py-3 px-4">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                              <div><label className="text-gray-500">立场</label><input type="text" value={c.stance || ''} onChange={e => updateCharacter(i, 'stance', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
-                              <div><label className="text-gray-500">说话风格</label><input type="text" value={c.style || ''} onChange={e => updateCharacter(i, 'style', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
-                              <div><label className="text-gray-500">动机</label><input type="text" value={c.motivation || ''} onChange={e => updateCharacter(i, 'motivation', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
-                              <div><label className="text-gray-500">专业领域</label><input type="text" value={c.expertise || ''} onChange={e => updateCharacter(i, 'expertise', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
-                              <div><label className="text-gray-500">人物关系</label><input type="text" value={c.relationship || ''} onChange={e => updateCharacter(i, 'relationship', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
-                              <div><label className="text-gray-500">限制条件</label><input type="text" value={c.constraints || ''} onChange={e => updateCharacter(i, 'constraints', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                          <td colSpan={6} className="py-4 px-4">
+                            <div className="space-y-4 text-xs">
+                              <div>
+                                <p className="font-medium text-gray-700 mb-2">公开人设补充</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                  <div><label className="text-gray-500">立场</label><input type="text" value={c.stance || ''} onChange={e => updateCharacter(i, 'stance', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                                  <div><label className="text-gray-500">说话风格</label><input type="text" value={c.style || ''} onChange={e => updateCharacter(i, 'style', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                                  <div><label className="text-gray-500">动机</label><input type="text" value={c.motivation || ''} onChange={e => updateCharacter(i, 'motivation', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                                  <div><label className="text-gray-500">专业领域</label><input type="text" value={c.expertise || ''} onChange={e => updateCharacter(i, 'expertise', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                                  <div><label className="text-gray-500">人物关系</label><input type="text" value={c.relationship || ''} onChange={e => updateCharacter(i, 'relationship', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                                  <div><label className="text-gray-500">限制条件</label><input type="text" value={c.constraints || ''} onChange={e => updateCharacter(i, 'constraints', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" /></div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <p className="font-medium text-gray-700 mb-2">隐藏身份 / 私密信息</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-gray-500">秘密身份</label>
+                                    <select value={secret.secretRole} onChange={e => updateSecret(i, 'secretRole', e.target.value as SecretRole)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 bg-white">
+                                      <option value="normal">normal 普通角色</option>
+                                      <option value="fraudster">fraudster 欺诈者</option>
+                                      <option value="detective">detective 侦探</option>
+                                      <option value="observer">observer 观察者</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-500">公开目标</label>
+                                    <input type="text" value={secret.publicGoal} onChange={e => updateSecret(i, 'publicGoal', e.target.value)} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400" />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-500">私密目标</label>
+                                    <textarea value={secret.privateGoal} onChange={e => updateSecret(i, 'privateGoal', e.target.value)} rows={2} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-500">已知秘密 <span className="text-gray-400">每行一个</span></label>
+                                    <textarea value={toLines(secret.knownSecrets)} onChange={e => updateSecret(i, 'knownSecrets', parseLines(e.target.value))} rows={2} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" />
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-4 mt-2">
+                                  <label className="flex items-center gap-2 text-gray-600"><input type="checkbox" checked={secret.isAlive} onChange={e => updateSecret(i, 'isAlive', e.target.checked)} />在场</label>
+                                  <label className="flex items-center gap-2 text-gray-600"><input type="checkbox" checked={secret.revealed} onChange={e => updateSecret(i, 'revealed', e.target.checked)} />身份已公开</label>
+                                </div>
+                              </div>
+
+                              <div>
+                                <p className="font-medium text-gray-700 mb-2">初始记忆 / 策略</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-gray-500">私有记忆 <span className="text-gray-400">每行一个</span></label>
+                                    <textarea value={toLines(memory.privateMemory)} onChange={e => updateMemory(i, 'privateMemory', parseLines(e.target.value))} rows={2} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" />
+                                  </div>
+                                  <div>
+                                    <label className="text-gray-500">公开记忆 <span className="text-gray-400">每行一个</span></label>
+                                    <textarea value={toLines(memory.publicMemory)} onChange={e => updateMemory(i, 'publicMemory', parseLines(e.target.value))} rows={2} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" />
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <label className="text-gray-500">初始策略计划</label>
+                                    <textarea value={memory.strategyPlan} onChange={e => updateMemory(i, 'strategyPlan', e.target.value)} rows={2} className="w-full mt-1 px-2 py-1 border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-400 resize-none" />
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </td>
                         </tr>
                       )}
                     </Fragment>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
