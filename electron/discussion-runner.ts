@@ -370,26 +370,29 @@ function mergeMemoryUpdate(c: InlineCharacter, payload: MemoryUpdatePayload | nu
 
 const store = new Store();
 const PROVIDER_PREFIX = 'provider:';
-const sessions = new Map<string, AbortController>();
-const pendingHostInputs = new Map<string, (content: string) => void>();
-const pausedSessions = new Map<string, () => void>();
+type SessionState = {
+  controller: AbortController;
+  pauseResolver?: () => void;
+  hostInputResolver?: (content: string) => void;
+};
+const sessions = new Map<string, SessionState>();
 
 export function injectUserHostInput(roundTableId: string, content: string): boolean {
-  const resolve = pendingHostInputs.get(roundTableId);
-  if (resolve) { resolve(content); pendingHostInputs.delete(roundTableId); return true; }
+  const s = sessions.get(roundTableId);
+  if (s?.hostInputResolver) { s.hostInputResolver(content); s.hostInputResolver = undefined; return true; }
   return false;
 }
 
 export function pauseDiscussion(id: string): void {
-  if (sessions.has(id) && !pausedSessions.has(id)) {
-    pausedSessions.set(id, null as any);
+  const s = sessions.get(id);
+  if (s && !s.pauseResolver) {
+    s.pauseResolver = undefined as any;
   }
 }
 
 export function resumeDiscussion(id: string): void {
-  const resolve = pausedSessions.get(id);
-  if (resolve) resolve();
-  pausedSessions.delete(id);
+  const s = sessions.get(id);
+  if (s?.pauseResolver) { s.pauseResolver(); s.pauseResolver = undefined; }
 }
 
 function genId(): string { return crypto.randomUUID(); }
@@ -435,20 +438,22 @@ async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: st
 }
 
 function send(ch: string, ...args: unknown[]): void {
-  const win = BrowserWindow.getFocusedWindow();
-  if (win && !win.isDestroyed()) win.webContents.send(ch, ...args);
+  const wins = BrowserWindow.getAllWindows();
+  if (wins.length > 0 && !wins[0].isDestroyed()) wins[0].webContents.send(ch, ...args);
 }
 
 export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
   normalizeRoundTable(rt);
   const ctrl = new AbortController();
-  sessions.set(rt.id, ctrl);
+  sessions.set(rt.id, { controller: ctrl });
   const sig = ctrl.signal;
   const all: InlineMessage[] = [];
   const sys = buildSysPrompt();
   const invisible = rt.host?.mode === 'invisible';
 
   rt.status = 'discussing';
+  // Immediately save status so Home in-progress panel can see it
+  { const d = getDataDir(); ensureDir(d); const idx = loadIndex(d); const fn = idx[rt.id]; if (fn) atomicWriteJson(path.join(d, `${fn}.json`), rt); }
 
   const tryCall = async (nm: string, s: string, u: string, provId?: string, temp?: number): Promise<{ content?: string; error?: string }> => {
     const r = await callLlm(s, u, sig, provId, temp);
@@ -476,7 +481,8 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
     if (rt.host?.mode === 'user') {
       send('discuss:awaiting-host-input', { roundTableId: rt.id, round: 0, phase: 'opening' });
       const userOpening = await new Promise<string>((resolve) => {
-        pendingHostInputs.set(rt.id, resolve);
+        const s = sessions.get(rt.id);
+        if (s) s.hostInputResolver = resolve;
       });
       if (sig?.aborted) throw new Error('生成已中止');
       const openingMsg = buildMsg(rt.id, 0, 'host', rt.host.name, 'opening', userOpening);
@@ -491,11 +497,12 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
         if (sig?.aborted) throw new Error('生成已中止');
         if (ch.secret?.isAlive === false) continue;
         // Pause check: wait while paused
-        while (pausedSessions.has(rt.id)) {
+        while (sessions.get(rt.id)?.pauseResolver !== undefined) {
           send('discuss:paused', { roundTableId: rt.id, round });
           await new Promise<void>((resolve) => {
-            if (sig?.aborted) { resolve(); return; }
-            pausedSessions.set(rt.id, resolve);
+            const s = sessions.get(rt.id);
+            if (s?.controller.signal.aborted) { resolve(); return; }
+            if (s) s.pauseResolver = resolve;
           });
           if (sig?.aborted) throw new Error('生成已中止');
         }
@@ -512,7 +519,8 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
           // User host mode: wait for user input
           send('discuss:awaiting-host-input', { roundTableId: rt.id, round });
           const userInput = await new Promise<string>((resolve) => {
-            pendingHostInputs.set(rt.id, resolve);
+            const s = sessions.get(rt.id);
+            if (s) s.hostInputResolver = resolve;
           });
           if (sig?.aborted) throw new Error('生成已中止');
           const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', userInput);
@@ -544,12 +552,12 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
     all.push(rm); send('discuss:message', rm);
 
     sessions.delete(rt.id);
-    saveDiscussion(rt, all);
+    saveDiscussion(rt, all, 'completed');
     send('discuss:complete', { roundTableId: rt.id, messages: all });
 
   } catch (e: any) {
     sessions.delete(rt.id);
-    try { saveDiscussion(rt, all); } catch { /* save best-effort */ }
+    try { saveDiscussion(rt, all, e.message === '生成已中止' ? 'stopped' : 'error'); } catch { /* save best-effort */ }
     if (e.message === '生成已中止') {
       send('discuss:complete', { roundTableId: rt.id, messages: all });
     } else {
@@ -558,18 +566,30 @@ export async function startDiscussion(rt: InlineRoundTable): Promise<void> {
   }
 }
 
-function saveDiscussion(rt: InlineRoundTable, all: InlineMessage[]): void {
+function saveDiscussion(rt: InlineRoundTable, all: InlineMessage[], status: 'completed' | 'stopped' | 'error' = 'completed'): void {
   const dataDir = getDataDir();
   ensureDir(dataDir);
   const index = loadIndex(dataDir);
   const filename = index[rt.id];
   if (!filename) return;
-  rt.status = 'completed';
+  rt.status = status;
   atomicWriteJson(path.join(dataDir, `${filename}.json`), rt);
   atomicWriteJson(path.join(dataDir, `${filename}_messages.json`), all);
 }
 
 export function stopDiscussion(id: string): void {
-  const c = sessions.get(id);
-  if (c) { c.abort(); sessions.delete(id); }
+  const s = sessions.get(id);
+  if (!s) return;
+  s.controller.abort();
+  // Wake up host input wait
+  if (s.hostInputResolver) {
+    s.hostInputResolver('');
+    s.hostInputResolver = undefined;
+  }
+  // Wake up pause wait
+  if (s.pauseResolver) {
+    s.pauseResolver();
+    s.pauseResolver = undefined;
+  }
+  sessions.delete(id);
 }

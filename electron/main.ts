@@ -110,7 +110,7 @@ function buildMenu(win: BrowserWindow): Menu {
             dialog.showMessageBox(win, {
               type: 'info',
               title: '关于 MultiRound',
-              message: 'MultiRound v1.0',
+              message: 'MultiRound v0.3.0 Beta',
               detail:
                 '让多个 AI 角色围绕一个主题进行主持式圆桌讨论。\n\n' +
                 '技术栈: Electron + React + TypeScript\n' +
@@ -416,7 +416,7 @@ function synthesizePersona(c: any): string {
 
 function migrateV1toV2(data: any): any {
   const topic = data.topic || '';
-  const totalRounds = data.totalRounds || 3;
+  const totalRounds = data.totalRounds;
 
   return {
     id: data.id,
@@ -667,7 +667,7 @@ ipcMain.handle('data:export-roundtable', async (_event, id: string) => {
   lines.push(`主题：${rt.topic}`);
   lines.push(`主持人：${rt.host?.name || ''}`);
   lines.push(`参与角色：${(rt.characters || []).map((c: any) => c.name).join('、')}`);
-  lines.push(`讨论轮数：${rt.totalRounds || 3} 轮`);
+  lines.push(`讨论轮数：${rt.totalRounds === 0 ? "不预设轮数（最多 999 轮）" : rt.totalRounds + " 轮"}`);
   lines.push(`创建时间：${new Date(rt.createdAt || Date.now()).toLocaleString('zh-CN')}`);
   lines.push('='.repeat(40));
   lines.push('');
@@ -862,7 +862,7 @@ ipcMain.handle('roundtables:export', async (_event, id: string) => {
   lines.push(`主题：${rt.topic}`);
   lines.push(`主持人：${rt.host?.name || ''}`);
   lines.push(`参与角色：${(rt.characters || []).map((c: any) => c.name).join('、')}`);
-  lines.push(`讨论轮数：${rt.totalRounds || 3} 轮`);
+  lines.push(`讨论轮数：${rt.totalRounds === 0 ? "不预设轮数（最多 999 轮）" : rt.totalRounds + " 轮"}`);
   lines.push(`创建时间：${new Date(rt.createdAt || Date.now()).toLocaleString('zh-CN')}`);
   lines.push('='.repeat(40));
   lines.push('');

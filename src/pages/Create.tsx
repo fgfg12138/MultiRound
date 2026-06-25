@@ -32,7 +32,6 @@ function createDefaultMemory(overrides?: Partial<CharacterMemory>): CharacterMem
     suspicionMap: {},
     strategyPlan: '',
     ...overrides,
-    suspicionMap: overrides?.suspicionMap || {},
   };
 }
 

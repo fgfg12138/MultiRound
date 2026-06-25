@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listProviders } from '@/lib/settings-store';
 import { generateId } from '@/lib/types';
-import { saveRoundTable, listRoundTables, deleteRoundTable } from '@/lib/storage';
+import { saveRoundTable, listRoundTables, deleteRoundTable, saveMessages } from '@/lib/storage';
 import { useToast } from '@/components/Toast';
 import type { ProviderConfig } from '@/types/electron.d';
 import Layout from '@/components/Layout';
@@ -74,17 +74,14 @@ export default function Home() {
   }
 
   async function handleReRun(rt: any) {
-    const newRt = {
+    const overwritten = {
       ...rt,
       id: rt.id,
-      characters: (rt.characters || []).map((c: any) => ({
-        ...c,
-        id: c.id,
-      })),
       status: 'created' as const,
-      createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
-    await saveRoundTable(newRt as any);
+    await saveRoundTable(overwritten as any);
+    await saveMessages(rt.id, []);
     showToast({ type: 'success', message: '正在重新运行...' });
     navigate(`/discussion/${rt.id}`);
   }
@@ -291,7 +288,7 @@ export default function Home() {
       </section>
 
       <footer className="mt-auto py-6 text-center text-xs text-gray-400 border-t border-gray-100">
-        MultiRound v1.0
+        MultiRound v0.3.0 Beta
       </footer>
     </Layout>
   );
