@@ -6,11 +6,13 @@ import path from 'node:path';
 import fs from 'node:fs';
 import Store from 'electron-store';
 import { callProviderLLM, testProviderConnection, encryptProvider, decryptProvider, maskProviderForUI, ProviderConfig, StoredProviderConfig } from './providers.js';
-import { startDiscussion, stopDiscussion, pauseDiscussion, resumeDiscussion, injectUserHostInput, appendRound, handleWhisperReply } from './discussion-runner.js';
+import { startDiscussion, appendRound } from './discussion-runner.js';
+import { stopDiscussion, pauseDiscussion, resumeDiscussion, injectUserHostInput } from './control.js';
+import { handleWhisperReply } from './whisper-runner.js';
 import { getDataDir, ensureDir, atomicWriteJson, loadIndex, saveIndex, saveWhispers, loadWhispers } from './data-store.js';
 import type { WhisperMessage } from './types.js';
 import { buildSysPrompt, buildCharSpeech } from './prompts.js';
-import { resolveProvider } from './discussion-runner.js';
+import { resolveProvider } from './runner-state.js';
 
 interface Schema {
   [key: string]: unknown;
