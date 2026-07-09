@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+@theme {
+  --color-p50: #f5f3ff;
+  --color-p100: #ede9fe;
+  --color-p200: #ddd6fe;
+  --color-p300: #c4b5fd;
+  --color-p400: #a78bfa;
+  --color-p500: #8b5cf6;
+  --color-p600: #7c3aed;
+  --color-p700: #6d28d9;
+  --color-p800: #5b21b6;
+  --color-p900: #4c1d95;
+  --color-g50: #f9fafb;
+  --color-g100: #f3f4f6;
+  --color-g200: #e5e7eb;
+  --color-g300: #d1d5db;
+  --color-g400: #9ca3af;
+  --color-g500: #6b7280;
+  --color-g600: #4b5563;
+  --color-g700: #374151;
+  --color-g800: #1f2937;
+  --color-g900: #111827;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+  --spacing-s1: 4px;
+  --spacing-s2: 8px;
+  --spacing-s3: 12px;
+  --spacing-s4: 16px;
+  --spacing-s5: 20px;
+  --spacing-s6: 24px;
+  --spacing-s8: 32px;
+  --spacing-s10: 40px;
+  --spacing-s12: 48px;
+  --radius-r: 8px;
+  --radius-r-lg: 12px;
+  --radius-r-xl: 16px;
+  --easing-default: 200ms ease;
+}
+
+body {
+  font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  background: var(--color-g50);
+  color: var(--color-g800);
+  margin: 0;
+  min-height: 100dvh;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chat participant avatar overlapping stack */
+.chat-p-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; color: #fff;
+  border: 2px solid white; flex-shrink: 0;
+}
+.chat-p-avatar:first-child { margin-left: 0; }
+
+/* Custom thin scrollbar for discussion feed */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-g300); border-radius: 2px; }
+
+/* Right panel section title */
+.rp-section-title {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-g400);
+  padding: 8px 8px 0;
+  margin-bottom: 12px;
+}
+
+/* Custom scrollbar - 4px thin scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-g300);
+  border-radius: 2px;
+}
+
+/* Toast slide-in animation */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}

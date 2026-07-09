@@ -1,0 +1,51 @@
+sequenceDiagram
+    participant Runner as discussion-runner.ts
+    participant TBM as TokenBudgetManager
+    participant builder as buildCombinedPrompt
+    participant TE as TokenEstimator
+    participant LLM as LLM API
+    participant TT as TokenTracker
+
+    Note over Runner: ★ 新架构：一次调用完成发言+记忆更新 ★
+
+    Note over Runner: 角色发言循环（每角色每轮）
+    Note over Runner: TokenTracker 已在此会话中初始化
+
+    Runner->>builder: buildCombinedPrompt(rt, ch, round, all)
+    activate builder
+    Note over builder: 使用 CHAR_SPEECH_COMBINED PromptType<br/>创建 TokenBudgetManager（预算 5000）
+    Note over builder: 组装上下文同 buildCharSpeech<br/>末尾附加 JSON 输出格式要求
+    builder-->>Runner: combinedPrompt
+    deactivate builder
+
+    Note over Runner: 估算输入 token
+    Runner->>TE: estimateTokens(sys + combinedPrompt)
+    TE-->>Runner: inputTokens
+
+    Runner->>LLM: callProviderLLM(sys, combinedPrompt, ..., onChunk)
+    Note over LLM: 流式输出 JSON 字符
+    Note over LLM: { "public": { "speech": "..."
+    LLM-->>Runner: { content: completeJSON }
+
+    Note over Runner: 估算输出 token
+    Runner->>TE: estimateTokens(outputContent)
+    TE-->>Runner: outputTokens
+
+    Note over Runner: 记录 token 用量
+    Runner->>TT: addRecord({ ch.id, round, "CHAR_SPEECH_COMBINED", inputTokens, outputTokens })
+
+    Note over Runner: IPC → 渲染进程
+    Runner->>Runner: send('discuss:token-update', { records })
+
+    Note over Runner: 解析完整 JSON
+    Runner->>Runner: parseCharacterOutput(content)
+
+    alt 解析成功
+        Note over Runner: extract public.speech → buildMsg + push
+        Note over Runner: extract private.memoryUpdate → mergeMemoryUpdate
+    else 解析失败
+        Note over Runner: fallback: 用全部文本做发言
+        Note over Runner: 跳过本轮记忆更新，记 warn 日志
+    end
+
+    Note over Runner: *** 单次 LLM 调用完成 ***

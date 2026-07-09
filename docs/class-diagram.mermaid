@@ -1,0 +1,62 @@
+classDiagram
+    class LayoutProps {
+        +ReactNode children
+        +string? title
+        +boolean showBack
+        +string? backTo
+        +ReactNode? actions
+    }
+
+    class SidebarProps {
+        +string currentPath
+    }
+
+    class TopBarProps {
+        +string? title
+        +boolean showBack
+        +string? backTo
+        +ReactNode? actions
+        +() => void onBack
+    }
+
+    class RightPanelProps {
+        +Character[] characters
+        +string roundTableId
+        +boolean isPaused
+        +WhisperGroup[] groups
+        +boolean whisperTabActive
+        +(boolean) => void onWhisperTabChange
+    }
+
+    class RightPanelParticipant {
+        +string id
+        +string name
+        +string role
+        +string avatarColor
+        +string status~speaking|online|offline~
+    }
+
+    class MessageBubbleProps {
+        +Message message
+        +number colorIndex
+        +boolean streaming
+        +boolean isWhisper
+    }
+
+    class ToastItem {
+        +string id
+        +ToastType type
+        +string message
+        +number? duration
+    }
+
+    class ToastContextValue {
+        +(Omit~ToastItem, 'id'~) => void showToast
+        +ToastItem[] toasts
+    }
+
+    LayoutProps --> SidebarProps : instantiate
+    LayoutProps --> TopBarProps : instantiate
+    LayoutProps --> RightPanelProps : passed via children (Discussion)
+    MessageBubbleProps ..> RightPanelProps : used inside Discussion
+    ToastContextValue --|> ToastProvider : provides

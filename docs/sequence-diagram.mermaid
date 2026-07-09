@@ -1,0 +1,37 @@
+sequenceDiagram
+    participant User
+    participant App
+    participant Layout
+    participant Sidebar
+    participant TopBar
+    participant Page
+    participant Hook
+
+    Note over User,Hook: 页面加载流程 (以 Discussion 为例)
+    User->>App: Navigate to /discussion/:id
+    App->>Layout: Render Layout wrapper
+    Layout->>Sidebar: Pass currentPath from useLocation()
+    Layout->>TopBar: Pass title/showBack/actions
+    Layout->>Page: Render children (Discussion page)
+    Page->>Hook: Call useDiscussion(id)
+    Hook-->>Page: Return messages, isRunning, etc.
+    Page->>Page: Render Chat View + RightPanel
+
+    Note over User,Hook: 用户操作: 发送消息
+    User->>Page: Click send button / Ctrl+Enter
+    Page->>Hook: sendUserHostInput(text)
+    Hook-->>Page: Update messages array
+    Page->>Page: Scroll chat to bottom
+
+    Note over User,Hook: 暂停/恢复
+    User->>Page: Click "暂停" button
+    Page->>Hook: pause()
+    Hook-->>Page: isPaused = true
+    Page->>RightPanel: Switch to Whisper tab
+    Page->>Page: Show Pause Overlay
+
+    Note over User,Hook: Sidebar 导航
+    User->>Sidebar: Click "首页"
+    Sidebar->>Layout: useNavigate('/')
+    Layout->>App: Route changes
+    App->>Layout: Render Home page
