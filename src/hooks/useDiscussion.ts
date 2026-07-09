@@ -81,347 +81,111 @@ export function useDiscussion() {
     setCurrentCharacter(name);
   }, []);
 
-  const startDiscussion = useCallback(
-    async (roundTable: RoundTable, options?: { preserveMessages?: boolean }) => {
-      const preserve = options?.preserveMessages === true && messagesRef.current.length > 0;
-      setGenerateStatus('generating');
-      setIsRunning(true);
-      setError('');
-      if (!preserve) {
-        setMessages([]);
-        messagesRef.current = [];
-      }
-      setIsComplete(false);
-      setCurrentCharacter(null);
-      setFailedCharacters([]);
-      stoppedByUserRef.current = false;
-      roundTableRef.current = roundTable;
-
-      // Set up event listeners
-      const cleanup: (() => void)[] = [];
-
-      const unsubMsg = window.electronAPI.onDiscussMessage((msg: Message) => {
-        onMessage(msg);
-      });
-      cleanup.push(unsubMsg);
-
-      const unsubChar = window.electronAPI.onDiscussCharacterStart((name: string) => {
-        onCharacterStart(name);
-      });
-      cleanup.push(unsubChar);
-
-      const unsubComplete = window.electronAPI.onDiscussComplete(async (result: any) => {
-        if (roundTableRef.current) {
-          roundTableRef.current.status = stoppedByUserRef.current ? 'stopped' : 'completed';
-          await saveRoundTable(roundTableRef.current);
-          await saveMessages(roundTableRef.current.id, result.messages || messagesRef.current);
-        }
-        setIsComplete(true);
-        setGenerateStatus('idle');
-        setIsRunning(false);
-        setCurrentCharacter(null);
-        cleanup.forEach((fn) => fn());
-        cleanupRef.current = [];
-      });
-      cleanup.push(unsubComplete);
-
-      const unsubError = window.electronAPI.onDiscussError(async (err: any) => {
-        if (roundTableRef.current) {
-          await saveMessages(roundTableRef.current.id, messagesRef.current);
-        }
-        setError(err.error || '讨论生成失败');
-        setGenerateStatus('error');
-        setIsRunning(false);
-        setCurrentCharacter(null);
-        cleanup.forEach((fn) => fn());
-        cleanupRef.current = [];
-      });
-      cleanup.push(unsubError);
-
-      const unsubPaused = window.electronAPI.onDiscussPaused(() => setIsPaused(true));
-      cleanup.push(unsubPaused);
-
-      // Whisper reply listeners — trigger re-render when new whisper messages arrive
-      const unsubWhisperReply = window.electronAPI.onWhisperReply
-        ? window.electronAPI.onWhisperReply((data) => {
-            if (data.roundTableId === roundTableRef.current?.id) {
-              setMessages((prev) => [...prev]);
-            }
-          })
-        : undefined;
-      if (unsubWhisperReply) cleanup.push(unsubWhisperReply);
-
-      const unsubWhisperGroupReply = window.electronAPI.onWhisperGroupReply
-        ? window.electronAPI.onWhisperGroupReply((data) => {
-            if (data.roundTableId === roundTableRef.current?.id) {
-              setMessages((prev) => [...prev]);
-            }
-          })
-        : undefined;
-      if (unsubWhisperGroupReply) cleanup.push(unsubWhisperGroupReply);
-
-      const unsubAwait = window.electronAPI.onDiscussAwaitingHostInput((info) => {
-        setAwaitingHostInput(info);
-      });
-      cleanup.push(unsubAwait);
-
-      // Streaming: collect chunks for each character
-      streamingContentRef.current = {};
-      let chunkCounter = 0;
-      const unsubStreamChunk = window.electronAPI.onDiscussStreamChunk((data) => {
-        const { characterName, chunk } = data;
-        setStreamingCharacter(characterName);
-        streamingContentRef.current[characterName] =
-          (streamingContentRef.current[characterName] || '') + chunk;
-        chunkCounter++;
-        // Update the last streaming message in the list
-        setMessages((prev) => {
-          const next = [...prev];
-          const lastIdx = next.length - 1;
-          if (lastIdx >= 0 && next[lastIdx].characterName === characterName) {
-            // 已有该角色的消息，更新内容
-            next[lastIdx] = { ...next[lastIdx], content: streamingContentRef.current[characterName] };
-          } else if (lastIdx >= 0 && next[lastIdx].characterName !== characterName) {
-            // 前一个角色的消息已完成，插入当前角色的占位消息
-            const rt = roundTableRef.current;
-            if (rt) {
-              const char = rt.characters.find((c: any) => c.name === characterName)
-                || (rt.host?.name === characterName ? { id: 'host', name: characterName } : null);
-              const round = next[lastIdx]?.round || 1;
-              next.push({
-                id: `streaming-${characterName}-${chunkCounter}`,
-                roundTableId: rt.id,
-                characterId: char?.id || characterName,
-                characterName,
-                type: 'speech',
-                content: streamingContentRef.current[characterName],
-                timestamp: Date.now(),
-                round,
-              });
-            }
-          } else {
-            // 空列表，插入第一条占位消息
-            const rt = roundTableRef.current;
-            if (rt) {
-              const char = rt.characters.find((c: any) => c.name === characterName);
-              next.push({
-                id: `streaming-${characterName}-${chunkCounter}`,
-                roundTableId: rt.id,
-                characterId: char?.id || characterName,
-                characterName,
-                type: 'speech',
-                content: streamingContentRef.current[characterName],
-                timestamp: Date.now(),
-                round: 1,
-              });
-            }
-          }
-          return next;
-        });
-      });
-      cleanup.push(unsubStreamChunk);
-
-      const unsubStreamEnd = window.electronAPI.onDiscussStreamEnd((data) => {
-        const { characterName } = data;
-        setStreamingCharacter(null);
-        delete streamingContentRef.current[characterName];
-      });
-      cleanup.push(unsubStreamEnd);
-
-      const unsubTokenUpdate = window.electronAPI.onDiscussTokenUpdate
-        ? window.electronAPI.onDiscussTokenUpdate((data: { roundTableId: string; records: TokenRecord[] }) => {
-            setTokenRecords(data.records);
-            const gt = { inputTokens: 0, outputTokens: 0, total: 0 };
-            for (const r of data.records) {
-              gt.inputTokens += r.estimatedInputTokens;
-              gt.outputTokens += r.estimatedOutputTokens;
-            }
-            gt.total = gt.inputTokens + gt.outputTokens;
-            setTokenTotals(gt);
-          })
-        : undefined;
-      if (unsubTokenUpdate) cleanup.push(unsubTokenUpdate);
-
-      cleanupRef.current = cleanup;
-
-      // Start the discussion in the main process
-      try {
-        await window.electronAPI.discussRun(roundTable);
-      } catch (err: any) {
-        setError(err.message || '启动讨论失败');
-        setGenerateStatus('error');
-        setIsRunning(false);
-        setCurrentCharacter(null);
-        cleanup.forEach((fn) => fn());
-        cleanupRef.current = [];
-      }
-    },
-    [onMessage, onCharacterStart]
-  );
-
-  const appendRound = useCallback(async (roundTable: RoundTable) => {
-    setGenerateStatus('generating');
-    setIsRunning(true);
-    setError('');
-    setIsComplete(false);
-    setCurrentCharacter(null);
-    setFailedCharacters([]);
-    stoppedByUserRef.current = false;
-    roundTableRef.current = roundTable;
-
-    // Set up event listeners (same as startDiscussion)
+  const subscribeEvents = useCallback((config: { onComplete?: (result: any) => Promise<void>; onError?: (err: any) => Promise<void> } = {}) => {
     const cleanup: (() => void)[] = [];
+    const { onComplete, onError } = config;
 
-    const unsubMsg = window.electronAPI.onDiscussMessage((msg: Message) => {
-      onMessage(msg);
-    });
-    cleanup.push(unsubMsg);
+    cleanup.push(window.electronAPI.onDiscussMessage((msg) => onMessage(msg)));
+    cleanup.push(window.electronAPI.onDiscussCharacterStart((name) => onCharacterStart(name)));
 
-    const unsubChar = window.electronAPI.onDiscussCharacterStart((name: string) => {
-      onCharacterStart(name);
-    });
-    cleanup.push(unsubChar);
+    cleanup.push(window.electronAPI.onDiscussComplete(async (result) => {
+      if (onComplete) await onComplete(result);
+      setIsComplete(true); setGenerateStatus('idle'); setIsRunning(false); setCurrentCharacter(null);
+      cleanup.forEach((fn) => fn()); cleanupRef.current = [];
+    }));
 
-    const unsubComplete = window.electronAPI.onDiscussComplete(async (result: any) => {
-      if (roundTableRef.current) {
-        roundTableRef.current.status = 'completed';
-        await saveRoundTable(roundTableRef.current);
-        await saveMessages(roundTableRef.current.id, result.messages || messagesRef.current);
-      }
-      setIsComplete(true);
-      setGenerateStatus('idle');
-      setIsRunning(false);
-      setCurrentCharacter(null);
-      cleanup.forEach((fn) => fn());
-      cleanupRef.current = [];
-    });
-    cleanup.push(unsubComplete);
+    cleanup.push(window.electronAPI.onDiscussError(async (err) => {
+      if (onError) await onError(err);
+      setError(err.error || '讨论出错'); setGenerateStatus('error'); setIsRunning(false); setCurrentCharacter(null);
+      cleanup.forEach((fn) => fn()); cleanupRef.current = [];
+    }));
 
-    const unsubError = window.electronAPI.onDiscussError(async (err: any) => {
-      if (roundTableRef.current) {
-        await saveMessages(roundTableRef.current.id, messagesRef.current);
-      }
-      setError(err.error || '追加讨论失败');
-      setGenerateStatus('error');
-      setIsRunning(false);
-      setCurrentCharacter(null);
-      cleanup.forEach((fn) => fn());
-      cleanupRef.current = [];
-    });
-    cleanup.push(unsubError);
-
-    const unsubPaused = window.electronAPI.onDiscussPaused(() => setIsPaused(true));
-    cleanup.push(unsubPaused);
-
-    // Whisper reply listeners — trigger re-render when new whisper messages arrive
-    const unsubWhisperReply = window.electronAPI.onWhisperReply
-      ? window.electronAPI.onWhisperReply((data) => {
-          if (data.roundTableId === roundTableRef.current?.id) {
-            setMessages((prev) => [...prev]);
-          }
-        })
-      : undefined;
-    if (unsubWhisperReply) cleanup.push(unsubWhisperReply);
-
-    const unsubWhisperGroupReply = window.electronAPI.onWhisperGroupReply
-      ? window.electronAPI.onWhisperGroupReply((data) => {
-          if (data.roundTableId === roundTableRef.current?.id) {
-            setMessages((prev) => [...prev]);
-          }
-        })
-      : undefined;
-    if (unsubWhisperGroupReply) cleanup.push(unsubWhisperGroupReply);
-
-    const unsubAwait = window.electronAPI.onDiscussAwaitingHostInput((info) => {
-      setAwaitingHostInput(info);
-    });
-    cleanup.push(unsubAwait);
+    cleanup.push(window.electronAPI.onDiscussPaused(() => setIsPaused(true)));
+    if (window.electronAPI.onWhisperReply) cleanup.push(window.electronAPI.onWhisperReply((data) => { if (data.roundTableId === roundTableRef.current?.id) setMessages((prev) => [...prev]); }));
+    if (window.electronAPI.onWhisperGroupReply) cleanup.push(window.electronAPI.onWhisperGroupReply((data) => { if (data.roundTableId === roundTableRef.current?.id) setMessages((prev) => [...prev]); }));
+    cleanup.push(window.electronAPI.onDiscussAwaitingHostInput((info) => setAwaitingHostInput(info)));
 
     streamingContentRef.current = {};
     let chunkCounter = 0;
-    const unsubStreamChunk = window.electronAPI.onDiscussStreamChunk((data) => {
+    cleanup.push(window.electronAPI.onDiscussStreamChunk((data) => {
       const { characterName, chunk } = data;
       setStreamingCharacter(characterName);
-      streamingContentRef.current[characterName] =
-        (streamingContentRef.current[characterName] || '') + chunk;
+      streamingContentRef.current[characterName] = (streamingContentRef.current[characterName] || '') + chunk;
       chunkCounter++;
       setMessages((prev) => {
-        const next = [...prev];
-        const lastIdx = next.length - 1;
+        const next = [...prev]; const lastIdx = next.length - 1;
         if (lastIdx >= 0 && next[lastIdx].characterName === characterName) {
           next[lastIdx] = { ...next[lastIdx], content: streamingContentRef.current[characterName] };
         } else if (lastIdx >= 0 && next[lastIdx].characterName !== characterName) {
           const rt = roundTableRef.current;
           if (rt) {
-            const char = rt.characters.find((c: any) => c.name === characterName)
-              || (rt.host?.name === characterName ? { id: 'host', name: characterName } : null);
-            const round = next[lastIdx]?.round || 1;
-            next.push({
-              id: `streaming-${characterName}-${chunkCounter}`,
-              roundTableId: rt.id,
-              characterId: char?.id || characterName,
-              characterName,
-              type: 'speech',
-              content: streamingContentRef.current[characterName],
-              timestamp: Date.now(),
-              round,
-            });
+            const char = rt.characters.find((c) => c.name === characterName) || (rt.host?.name === characterName ? { id: 'host', name: characterName } : null);
+            next.push({ id: `streaming-${characterName}-${chunkCounter}`, roundTableId: rt.id, characterId: char?.id || characterName, characterName, type: 'speech', content: streamingContentRef.current[characterName], timestamp: Date.now(), round: next[lastIdx]?.round || 1 });
           }
         } else {
           const rt = roundTableRef.current;
           if (rt) {
-            const char = rt.characters.find((c: any) => c.name === characterName);
-            next.push({
-              id: `streaming-${characterName}-${chunkCounter}`,
-              roundTableId: rt.id,
-              characterId: char?.id || characterName,
-              characterName,
-              type: 'speech',
-              content: streamingContentRef.current[characterName],
-              timestamp: Date.now(),
-              round: 1,
-            });
+            const char = rt.characters.find((c) => c.name === characterName);
+            next.push({ id: `streaming-${characterName}-${chunkCounter}`, roundTableId: rt.id, characterId: char?.id || characterName, characterName, type: 'speech', content: streamingContentRef.current[characterName], timestamp: Date.now(), round: 1 });
           }
         }
         return next;
       });
-    });
-    cleanup.push(unsubStreamChunk);
+    }));
 
-    const unsubStreamEnd = window.electronAPI.onDiscussStreamEnd((data) => {
-      const { characterName } = data;
-      setStreamingCharacter(null);
-      delete streamingContentRef.current[characterName];
-    });
-    cleanup.push(unsubStreamEnd);
+    cleanup.push(window.electronAPI.onDiscussStreamEnd((data) => {
+      const { characterName } = data; setStreamingCharacter(null); delete streamingContentRef.current[characterName];
+    }));
 
-    const unsubTokenUpdate = window.electronAPI.onDiscussTokenUpdate
-      ? window.electronAPI.onDiscussTokenUpdate((data: { roundTableId: string; records: TokenRecord[] }) => {
-          setTokenRecords(data.records);
-          const gt = { inputTokens: 0, outputTokens: 0, total: 0 };
-          for (const r of data.records) {
-            gt.inputTokens += r.estimatedInputTokens;
-            gt.outputTokens += r.estimatedOutputTokens;
-          }
-          gt.total = gt.inputTokens + gt.outputTokens;
-          setTokenTotals(gt);
-        })
-      : undefined;
-    if (unsubTokenUpdate) cleanup.push(unsubTokenUpdate);
+    if (window.electronAPI.onDiscussTokenUpdate) cleanup.push(window.electronAPI.onDiscussTokenUpdate((data) => {
+      setTokenRecords(data.records || []);
+      const gt = { inputTokens: 0, outputTokens: 0, total: 0 };
+      for (const r of (data.records || [])) { gt.inputTokens += r.estimatedInputTokens || 0; gt.outputTokens += r.estimatedOutputTokens || 0; }
+      gt.total = gt.inputTokens + gt.outputTokens; setTokenTotals(gt);
+    }));
 
     cleanupRef.current = cleanup;
-
-    try {
-      await window.electronAPI.discussAppendRound(roundTable);
-    } catch (err: any) {
-      setError(err.message || '追加讨论失败');
-      setGenerateStatus('error');
-      setIsRunning(false);
-      setCurrentCharacter(null);
-      cleanup.forEach((fn) => fn());
-      cleanupRef.current = [];
-    }
+    return cleanup;
   }, [onMessage, onCharacterStart]);
+
+  const startDiscussion = useCallback(async (roundTable: any, options?: any) => {
+    const preserve = options?.preserveMessages === true && messagesRef.current.length > 0;
+    setGenerateStatus('generating'); setIsRunning(true); setError('');
+    if (!preserve) { setMessages([]); messagesRef.current = []; }
+    setIsComplete(false); setCurrentCharacter(null); setFailedCharacters([]);
+    stoppedByUserRef.current = false; roundTableRef.current = roundTable;
+
+    subscribeEvents({
+      onComplete: async (result) => {
+        if (roundTableRef.current) {
+          roundTableRef.current.status = stoppedByUserRef.current ? 'stopped' : 'completed';
+          await saveRoundTable(roundTableRef.current);
+          await saveMessages(roundTableRef.current.id, result.messages || messagesRef.current);
+        }
+      },
+      onError: async () => { if (roundTableRef.current) await saveMessages(roundTableRef.current.id, messagesRef.current); },
+    });
+
+    try { await window.electronAPI.discussRun(roundTable); }
+    catch (err: any) { setError(err.message || '启动讨论失败'); setGenerateStatus('error'); setIsRunning(false); setCurrentCharacter(null); cleanupRef.current.forEach((fn) => fn()); cleanupRef.current = []; }
+  }, [onMessage, onCharacterStart, subscribeEvents]);
+
+  const appendRound = useCallback(async (roundTable: any) => {
+    setGenerateStatus('generating'); setIsRunning(true); setError('');
+    setIsComplete(false); setCurrentCharacter(null); setFailedCharacters([]);
+    stoppedByUserRef.current = false; roundTableRef.current = roundTable;
+
+    subscribeEvents({
+      onComplete: async (result) => {
+        if (roundTableRef.current) { roundTableRef.current.status = 'completed'; await saveRoundTable(roundTableRef.current); await saveMessages(roundTableRef.current.id, result.messages || messagesRef.current); }
+      },
+      onError: async () => { if (roundTableRef.current) await saveMessages(roundTableRef.current.id, messagesRef.current); },
+    });
+
+    try { await window.electronAPI.discussAppendRound(roundTable); }
+    catch (err: any) { setError(err.message || '追加讨论失败'); setGenerateStatus('error'); setIsRunning(false); setCurrentCharacter(null); cleanupRef.current.forEach((fn) => fn()); cleanupRef.current = []; }
+  }, [onMessage, onCharacterStart, subscribeEvents]);
+
 
   const stop = useCallback(() => {
     if (roundTableRef.current) {
