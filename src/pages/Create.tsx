@@ -7,49 +7,13 @@ import type { ProviderConfig } from '@/types/electron.d';
 import { generateId, CURRENT_SCHEMA_VERSION } from '@/lib/types';
 import { saveRoundTable } from '@/lib/storage';
 import { listProviders } from '@/lib/settings-store';
+import { createDefaultSecret, createDefaultMemory, withDefaults, parseLines, toLines } from '@/lib/create-helpers';
 import { useToast } from '@/components/Toast';
 import Layout from '@/components/Layout';
 import { Plus, Play, Settings, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
 const TEAM_COLORS = ['#8B5CF6','#EC4899','#10B981','#F59E0B','#3B82F6','#EF4444','#06B6D4','#84CC16'];
 
-function createDefaultSecret(overrides?: Partial<CharacterSecret>): CharacterSecret {
-  return {
-    secretRole: 'normal',
-    publicGoal: '参与公开讨论，判断其他角色的真实意图。',
-    privateGoal: '',
-    knownSecrets: [],
-    isAlive: true,
-    revealed: false,
-    ...overrides,
-  };
-}
-
-function createDefaultMemory(overrides?: Partial<CharacterMemory>): CharacterMemory {
-  return {
-    privateMemory: [],
-    publicMemory: [],
-    suspicionMap: {},
-    strategyPlan: '',
-    ...overrides,
-  };
-}
-
-function withDefaults(c: Character): Character {
-  return {
-    ...c,
-    secret: createDefaultSecret(c.secret),
-    memory: createDefaultMemory(c.memory),
-  };
-}
-
-function parseLines(value: string): string[] {
-  return value.split('\n').map((s) => s.trim()).filter(Boolean);
-}
-
-function toLines(value?: string[]): string {
-  return (value || []).join('\n');
-}
 
 export default function Create() {
   const navigate = useNavigate();
