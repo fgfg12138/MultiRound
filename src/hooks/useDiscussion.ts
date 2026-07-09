@@ -3,8 +3,7 @@
 // 支持多圆桌并发，支持离开页面不中断
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { Message, RoundTable } from '@/lib/types';
-import type { TokenRecord } from '@/lib/token-tracker';
+import type { Message, RoundTable, TokenRecord } from '@/lib/types';
 import { generateId } from '@/lib/types';
 import { saveRoundTable, saveMessages, loadMessages } from '@/lib/storage';
 
