@@ -13,7 +13,7 @@ export const BUILTIN_PROVIDERS: Omit<ProviderConfig, 'apiKey' | 'id'>[] = [
   { name: 'DeepSeek',         baseUrl: 'https://api.deepseek.com/v1',                     model: '', isCustom: false },
   { name: '智谱 GLM',          baseUrl: 'https://open.bigmodel.cn/api/paas/v4',            model: '', isCustom: false },
   { name: '月之暗面 Kimi',      baseUrl: 'https://api.moonshot.cn/v1',                      model: '', isCustom: false },
-  { name: '阶跃星辰 MiMo',      baseUrl: 'https://api.stepfun.com/v1',                      model: '', isCustom: false },
+  { name: '阶跃星辰 StepFun',  baseUrl: 'https://api.stepfun.com/v1',                      model: '', isCustom: false },
   { name: '阿里 通义千问 Qwen', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: '', isCustom: false },
 ];
 
