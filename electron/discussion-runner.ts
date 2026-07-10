@@ -32,8 +32,8 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
   rt.status = 'discussing';
   { const d = getDataDir(); ensureDir(d); const idx = loadIndex(d); const fn = idx[rt.id]; if (fn) atomicWriteJson(path.join(d, `${fn}.json`), rt); }
 
-  const tryCall = async (nm: string, s: string, u: string, provId?: string, temp?: number): Promise<{ content?: string; error?: string }> => {
-    const r = await callLlm(s, u, sig, provId, temp);
+  const tryCall = async (nm: string, s: string, u: string, provId?: string, temp?: number, modelOverride?: string): Promise<{ content?: string; error?: string }> => {
+    const r = await callLlm(s, u, sig, provId, temp, undefined, modelOverride);
     if (r.content || r.error === '生成已中止') return r;
     return { content: '', error: r.error || '生成失败' };
   };
@@ -44,7 +44,7 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
     if (sig?.aborted) throw new Error('生成已中止');
     if (!invisible && rt.host?.mode !== 'user') {
       send('discuss:character-start', rt.host.name);
-      const r = await tryCall(rt.host.name, sys, buildHostOpen(rt), rt.host.providerId, rt.host.temperature);
+      const r = await tryCall(rt.host.name, sys, buildHostOpen(rt), rt.host.providerId, rt.host.temperature, rt.host.model);
       const m = buildMsg(rt.id, 1, 'host', rt.host.name, 'opening', r.content || `（主持人开场失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
       all.push(m); send('discuss:message', m);
     }
@@ -73,7 +73,7 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
         speechOrder = [...aliveChars].sort(() => Math.random() - 0.5);
       } else if (speakOrder === 'host-assigned') {
         const hostAssignPrompt = buildHostAssignPrompt(rt, round, aliveChars);
-        const hostAssignResult = await tryCall(rt.host.name, sys, hostAssignPrompt, rt.host.providerId, rt.host.temperature);
+        const hostAssignResult = await tryCall(rt.host.name, sys, hostAssignPrompt, rt.host.providerId, rt.host.temperature, rt.host.model);
         speechOrder = parseHostAssignedOrder(hostAssignResult.content || '', aliveChars);
       } else {
         speechOrder = aliveChars;
@@ -96,7 +96,7 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
           send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk });
         };
         const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
-        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk);
+        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model);
         const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
         const parsed = parseCharacterOutput(rawContent);
         const speechContent = parsed ? parsed.speech : rawContent;
@@ -123,7 +123,7 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
           all.push(m); send('discuss:message', m);
         } else if (!invisible) {
           send('discuss:character-start', rt.host.name);
-          const r = await tryCall(rt.host.name, sys, buildHostSum(rt, round, all), rt.host.providerId, rt.host.temperature);
+          const r = await tryCall(rt.host.name, sys, buildHostSum(rt, round, all), rt.host.providerId, rt.host.temperature, rt.host.model);
           const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content || `（小结生成失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
           all.push(m); send('discuss:message', m);
         }
@@ -134,14 +134,14 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
     if (sig?.aborted) throw new Error('生成已中止');
     if (!invisible && rt.host?.mode !== 'user') {
       send('discuss:character-start', rt.host.name);
-      const r = await tryCall(rt.host.name, sys, buildHostFinal(rt, all), rt.host.providerId, rt.host.temperature);
+      const r = await tryCall(rt.host.name, sys, buildHostFinal(rt, all), rt.host.providerId, rt.host.temperature, rt.host.model);
       const m = buildMsg(rt.id, round - 1, 'host', rt.host.name, 'final_summary', r.content || `（总结生成失败${r.error ? ': ' + r.error : ''}）`, { error: r.error });
       all.push(m); send('discuss:message', m);
     }
 
     if (sig?.aborted) throw new Error('生成已中止');
     send('discuss:character-start', `${rt.host.name}（总结）`);
-    const rp = await tryCall(rt.host.name, sys, buildResultPrompt(rt, all), rt.host.providerId, rt.host.temperature);
+    const rp = await tryCall(rt.host.name, sys, buildResultPrompt(rt, all), rt.host.providerId, rt.host.temperature, rt.host.model);
     const rm = buildMsg(rt.id, round - 1, 'host', rt.host.name, 'result', rp.content || '', { error: rp.error });
     all.push(rm); send('discuss:message', rm);
 
@@ -178,8 +178,8 @@ export async function appendRound(rt: RoundTable): Promise<void> {
   rt.status = 'discussing';
   { const d = getDataDir(); ensureDir(d); const idx = loadIndex(d); const fn = idx[rt.id]; if (fn) atomicWriteJson(path.join(d, `${fn}.json`), rt); }
 
-  const tryCall = async (nm: string, s: string, u: string, provId?: string, temp?: number): Promise<{ content?: string; error?: string }> => {
-    const r = await callLlm(s, u, sig, provId, temp);
+  const tryCall = async (nm: string, s: string, u: string, provId?: string, temp?: number, modelOverride?: string): Promise<{ content?: string; error?: string }> => {
+    const r = await callLlm(s, u, sig, provId, temp, undefined, modelOverride);
     if (r.content || r.error === '生成已中止') return r;
     return { content: '', error: r.error || '生成失败' };
   };
@@ -197,7 +197,7 @@ export async function appendRound(rt: RoundTable): Promise<void> {
       speechOrder = [...aliveChars].sort(() => Math.random() - 0.5);
     } else if (speakOrder === 'host-assigned') {
       const hostAssignPrompt = buildHostAssignPrompt(rt, nextRound, aliveChars);
-      const hostAssignResult = await tryCall(rt.host.name, sys, hostAssignPrompt, rt.host.providerId, rt.host.temperature);
+      const hostAssignResult = await tryCall(rt.host.name, sys, hostAssignPrompt, rt.host.providerId, rt.host.temperature, rt.host.model);
       speechOrder = parseHostAssignedOrder(hostAssignResult.content || '', aliveChars);
     } else {
       speechOrder = aliveChars;
@@ -217,7 +217,7 @@ export async function appendRound(rt: RoundTable): Promise<void> {
       let streamedContent = '';
       const onChunk = (chunk: string) => { streamedContent += chunk; send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); };
       const combinedPrompt = buildCombinedPrompt(rt, ch, nextRound, all);
-      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk);
+      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model);
       const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
       const parsed = parseCharacterOutput(rawContent);
       const speechContent = parsed ? parsed.speech : rawContent;

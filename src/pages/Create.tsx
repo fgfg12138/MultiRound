@@ -106,6 +106,9 @@ export default function Create() {
     if (!scenarioTitle.trim()) { setError('请输入讨论主题'); return; }
     const validChars = characters.filter(c => c.name.trim());
     if (validChars.length < 2) { setError('至少需要 2 个有名称的角色'); return; }
+    const invalidChars = validChars.filter(c => c.providerId && !providers.some(p => p.id === c.providerId));
+    if (invalidChars.length > 0) { setError(`角色「${invalidChars[0].name}」引用的厂商已失效，请重新选择`); return; }
+    if (hostProviderId && !providers.some(p => p.id === hostProviderId)) { setError('主持人引用的厂商已失效，请重新选择'); return; }
 
     setSaving(true);
     try {

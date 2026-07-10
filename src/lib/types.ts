@@ -52,6 +52,7 @@ export interface Character {
   constraints?: string;
   teamId?: string;
   temperature?: number;      // 0.0-2.0，默认走厂商配置
+  model?: string;                // 使用的模型名，缺省走 provider.defaultModel
 
   // V3: 隐藏身份和运行记忆。代码层隔离，不能只写在人设里。
   secret?: CharacterSecret;
@@ -68,6 +69,7 @@ export interface Host {
   mode: HostMode;                    // NEW: 默认 'visible'
   providerId?: string;               // 主持人使用的 LLM 厂商 ID，默认走第一个
   temperature?: number;              // 0.0-2.0
+  model?: string;                      // 使用的模型名，缺省走 provider.defaultModel
   allowUserInterruption?: boolean;
   autoIntervene?: boolean;
   secretAccess?: HostSecretAccess;   // V3: judge = 上帝/裁判主持人，可读全部秘密但公开发言不能泄露

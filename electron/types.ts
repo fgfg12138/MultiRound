@@ -32,6 +32,7 @@ export interface Character {
   providerId: string; stance?: string; style?: string;
   motivation?: string; expertise?: string; relationship?: string;
   constraints?: string; teamId?: string; temperature?: number;
+  model?: string;
   secret?: CharacterSecret;
   memory?: CharacterMemory;
 }
@@ -39,6 +40,7 @@ export interface Character {
 export interface Host {
   name: string; style: string; mode: HostMode;
   providerId?: string; temperature?: number;
+  model?: string;
   secretAccess?: HostSecretAccess;
 }
 
