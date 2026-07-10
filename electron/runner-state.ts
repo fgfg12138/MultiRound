@@ -6,7 +6,7 @@ import Store from 'electron-store';
 import { callProviderLLM, callProviderLLMStream, decryptProvider, ProviderConfig, StoredProviderConfig } from './providers.js';
 import type { Message, MsgType } from './types.js';
 
-export const store = new Store({ name: 'multiround-discussion', projectName: 'multiround' } as any);
+export const store = new Store({ name: 'multiround', projectName: 'multiround' } as any);
 export const PROVIDER_PREFIX = 'provider:';
 
 export type SessionState = {
