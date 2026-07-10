@@ -6,6 +6,8 @@ export interface ProviderConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  models?: string[];
+  defaultModel?: string;
   isCustom: boolean;
 }
 

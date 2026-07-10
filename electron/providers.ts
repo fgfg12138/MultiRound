@@ -8,6 +8,8 @@ export interface ProviderConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  models?: string[];
+  defaultModel?: string;
   isCustom: boolean;
 }
 
@@ -18,6 +20,8 @@ export interface StoredProviderConfig {
   baseUrl: string;
   apiKeyEncrypted: string;
   model: string;
+  models?: string[];
+  defaultModel?: string;
   isCustom: boolean;
 }
 
@@ -37,6 +41,8 @@ export function encryptProvider(config: ProviderConfig): StoredProviderConfig {
     baseUrl: config.baseUrl,
     apiKeyEncrypted: encryptKey(config.apiKey),
     model: config.model,
+    models: config.models || [config.model],
+    defaultModel: config.defaultModel || config.model,
     isCustom: config.isCustom,
   };
 }
@@ -49,6 +55,8 @@ export function decryptProvider(stored: StoredProviderConfig): ProviderConfig {
     baseUrl: stored.baseUrl,
     apiKey: decryptKey(stored.apiKeyEncrypted),
     model: stored.model,
+    models: stored.models || [stored.model],
+    defaultModel: stored.defaultModel || stored.model,
     isCustom: stored.isCustom,
   };
 }
@@ -61,6 +69,8 @@ export function maskProviderForUI(stored: StoredProviderConfig): ProviderConfig 
     baseUrl: stored.baseUrl,
     apiKey: maskKey(decryptKey(stored.apiKeyEncrypted)),
     model: stored.model,
+    models: stored.models || [stored.model],
+    defaultModel: stored.defaultModel || stored.model,
     isCustom: stored.isCustom,
   };
 }
@@ -89,7 +99,7 @@ export async function callProviderLLM(
         Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: provider.model,
+        model: provider.defaultModel || provider.models?.[0] || provider.model,
         messages,
         max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 1024,
         temperature: temperature ?? 0.8,
@@ -152,7 +162,7 @@ export async function callProviderLLMStream(
         Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: provider.model,
+        model: provider.defaultModel || provider.models?.[0] || provider.model,
         messages,
         max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 1024,
         temperature: temperature ?? 0.8,
