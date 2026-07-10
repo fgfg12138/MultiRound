@@ -121,6 +121,7 @@ function buildMenu(win: BrowserWindow): Menu {
                 '技术栈: Electron + React + TypeScript\n' +
                 '支持多厂商 LLM（OpenAI 兼容协议）',
             });
+            if (win && !win.isDestroyed()) { win.focus(); win.webContents.focus(); }
           },
         },
       ],
@@ -302,6 +303,7 @@ ipcMain.handle('providers:reveal-key', async (_event, providerId: string) => {
       defaultId: 0,
       cancelId: 0,
     });
+    if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.focus(); mainWindow.webContents.focus(); }
 
     if (result.response !== 1) return { revealed: false };
 
@@ -799,11 +801,13 @@ const MAX_MD_SIZE = 2 * 1024 * 1024; // 2MB
 
 ipcMain.handle('dialog:open-markdown', async () => {
   try {
-    const result = await dialog.showOpenDialog({
+    if (!mainWindow) return { ok: false, error: '窗口未就绪' };
+    const result = await dialog.showOpenDialog(mainWindow, {
       title: '选择 Markdown 文件',
       properties: ['openFile'],
       filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
     });
+    if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.focus(); mainWindow.webContents.focus(); }
     if (result.canceled || result.filePaths.length === 0) return null;
 
     const filePath = result.filePaths[0];
