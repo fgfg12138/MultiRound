@@ -5,6 +5,7 @@ import type { ProviderConfig } from '@/types/electron.d';
 import { BUILTIN_PROVIDERS, generateProviderId } from '@/lib/provider-types';
 import { listProviders, saveProvider, deleteProvider, testProvider, revealProviderKey } from '@/lib/settings-store';
 import { useToast } from '@/components/Toast';
+import ModelTagInput from '@/components/ModelTagInput';
 import Layout from '@/components/Layout';
 import {
   Plus, Trash2, TestTube, Check, X, Loader2, Settings as SettingsIcon,
@@ -26,12 +27,14 @@ export default function Settings() {
   const [plaintextKeys, setPlaintextKeys] = useState<Record<string, string>>({});
   const [keyCountdowns, setKeyCountdowns] = useState<Record<string, number>>({});
   const [testStatus, setTestStatus] = useState<Record<string, 'testing' | 'success' | 'error' | null>>({});
-
   // Form state
   const [formName, setFormName] = useState('');
   const [formBaseUrl, setFormBaseUrl] = useState('');
   const [formApiKey, setFormApiKey] = useState('');
   const [formModel, setFormModel] = useState('');
+  const [formModels, setFormModels] = useState<string[]>([]);
+  const [formDefaultModel, setFormDefaultModel] = useState('');
+  // placeholder
   const [formSaving, setFormSaving] = useState(false);
   const [showPresetMenu, setShowPresetMenu] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
@@ -63,6 +66,7 @@ export default function Settings() {
     setFormName(preset.name);
     setFormBaseUrl(preset.baseUrl);
     setFormModel('');  // 清空，用户自己填或用「获取模型」
+    setFormModels([]); setFormDefaultModel('');
   }
 
   async function handleSaveProvider(e: React.FormEvent) {
@@ -78,7 +82,9 @@ export default function Settings() {
       name: formName.trim(),
       baseUrl: formBaseUrl.trim().replace(/\/+$/, ''),
       apiKey: formApiKey.trim(),
-      model: formModel.trim() || 'default',
+      model: formDefaultModel || formModels[0] || formModel.trim() || 'default',
+      models: formModels.length > 0 ? formModels : (formModel.trim() ? [formModel.trim()] : ['default']),
+      defaultModel: formDefaultModel || formModels[0] || formModel.trim() || 'default',
       isCustom: !BUILTIN_PROVIDERS.some((p) => p.name === formName.trim()),
     };
 
@@ -88,7 +94,7 @@ export default function Settings() {
     if (result.ok) {
       showToast({ type: 'success', message: `已添加 ${config.name}` });
       setShowAddForm(false);
-      setFormName(''); setFormBaseUrl(''); setFormApiKey(''); setFormModel('');
+      setFormName(''); setFormBaseUrl(''); setFormApiKey(''); setFormModel(''); setFormModels([]); setFormDefaultModel('');
       await loadProviders();
     } else {
       showToast({ type: 'error', message: result.error || '保存失败' });

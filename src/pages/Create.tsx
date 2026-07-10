@@ -225,7 +225,7 @@ export default function Create() {
               <div>
                 <label className="block text-xs text-g500 mb-1">模型厂商</label>
                 <select value={hostProviderId} onChange={e => setHostProviderId(e.target.value)} className="w-full min-w-[160px] px-3 py-2 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent bg-white">
-                  {providers.map(p => <option key={p.id} value={p.id}>{p.model ? `${p.name} — ${p.model}` : p.name}</option>)}
+                  {providers.map(p => <option key={p.id} value={p.id}>{`${p.name} — ${(p.defaultModel || p.models?.[0] || p.model || "未设模型")}`}</option>)}
                 </select>
               </div>
             </div>
@@ -282,7 +282,7 @@ export default function Create() {
                         <td className="py-2 px-2 min-w-[200px]"><textarea value={c.persona} onChange={e => updateCharacter(i, 'persona', e.target.value)} placeholder="角色人设：性格、背景、立场、说话方式..." rows={2} className="w-full px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 resize-none" /></td>
                         <td className="py-2 px-2">
                           <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full min-w-[160px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
-                            {providers.map(p => <option key={p.id} value={p.id}>{p.model ? `${p.name} — ${p.model}` : p.name}</option>)}
+                            {providers.map(p => <option key={p.id} value={p.id}>{`${p.name} — ${(p.defaultModel || p.models?.[0] || p.model || "未设模型")}`}</option>)}
                           </select>
                         </td>
                         <td className="py-2 px-2">
