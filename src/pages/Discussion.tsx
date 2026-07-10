@@ -41,6 +41,8 @@ function cleanContent(raw: string): string {
     const textAfter = s.slice(end + 1).trim();
     s = (textBefore + ' ' + textAfter).trim();
   }
+  var m = s.match(/"speech"\s*:\s*"([^"]*?)"\s*[,}]/);
+  if (m) s = m[1];
   return s.trim();
 }
 

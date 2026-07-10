@@ -541,6 +541,7 @@ export function parseCharacterOutput(text: string): { speech: string; payload: M
     };
     return { speech: pub.speech, payload };
   } catch {
+    try { var m = withoutFence.match(/"speech"\s*:\s*"([^"])*?"\s*[,}]/); if (!m) m = withoutFence.match(/"speech"\s*:\s*"([^"]*)/); if (m) return { speech: m[1], payload: null }; } catch {}
     return null;
   }
 }

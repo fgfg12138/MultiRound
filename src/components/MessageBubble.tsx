@@ -12,6 +12,8 @@ function cleanContent(raw: string): string {
   s = s.replace(/",?\s*\}?\}?\}?\s*$/, '');
   // 移除 markdown 代码块标记
   s = s.replace(/^```(?:json)?\s*/gi, '').replace(/\s*```\s*$/gi, '');
+  var m = s.match(/"speech"\s*:\s*"([^"]*?)"\s*[,}]/);
+  if (m) s = m[1];
   return s.trim();
 }
 
