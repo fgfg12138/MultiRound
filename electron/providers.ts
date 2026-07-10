@@ -77,11 +77,11 @@ export function maskProviderForUI(stored: StoredProviderConfig): ProviderConfig 
     baseUrl: stored.baseUrl,
     apiKey: maskKey(decryptKey(stored.apiKeyEncrypted)),
     model: stored.model,
-    models: stored.models || [stored.model],
-    defaultModel: stored.defaultModel || stored.model,
     isCustom: stored.isCustom,
     createdAt: stored.createdAt,
     updatedAt: stored.updatedAt,
+    models: (stored.models || [stored.model]).filter(m => m && m !== 'default'),
+    defaultModel: (stored.defaultModel && stored.defaultModel !== 'default') ? stored.defaultModel : ((stored.models || [stored.model]).filter(m => m && m !== 'default')[0] || stored.model),
   };
 }
 
