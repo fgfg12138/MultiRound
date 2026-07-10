@@ -30,6 +30,9 @@ export function useDiscussion() {
   const [hasHistory, setHasHistory] = useState(false);
   const [streamingCharacter, setStreamingCharacter] = useState<string | null>(null);
   const [tokenRecords, setTokenRecords] = useState<TokenRecord[]>([]);
+  const [actualModels, setActualModels] = useState<Record<string, string>>({});
+  const [retryInfo, setRetryInfo] = useState<{ retryingCharacter: string; retryAttempt: number; retryMax: number } | null>(null);
+
   const [tokenTotals, setTokenTotals] = useState<{ inputTokens: number; outputTokens: number; total: number }>({
     inputTokens: 0, outputTokens: 0, total: 0,
   });
@@ -332,6 +335,8 @@ export function useDiscussion() {
     pause,
     resume,
     sendUserHostInput,
+    actualModels,
+    retryInfo,
     retryCharacter,
     reset,
     loadExistingDiscussion,
