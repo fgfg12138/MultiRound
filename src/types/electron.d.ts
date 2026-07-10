@@ -85,6 +85,8 @@ export interface ElectronAPI {
   onWhisperGroupReply: (callback: (data: { roundTableId: string; groupId: string; reply: WhisperMessage }) => void) => () => void;
 
   // Streaming events
+  onDiscussModelUsed: (callback: (data: { providerId: string; model: string; characterId: string }) => void) => () => void;
+  onDiscussRetry: (callback: (data: { roundTableId: string; retryingCharacter: string; retryAttempt: number; retryMax: number }) => void) => () => void;
   onDiscussStreamChunk: (callback: (data: { roundTableId: string; characterId: string; characterName: string; chunk: string }) => void) => () => void;
   onDiscussStreamEnd: (callback: (data: { roundTableId: string; characterId: string; characterName: string; content: string; error?: string }) => void) => () => void;
 

@@ -147,6 +147,14 @@ export function useDiscussion() {
       gt.total = gt.inputTokens + gt.outputTokens; setTokenTotals(gt);
     }));
 
+    if (window.electronAPI.onDiscussModelUsed) cleanup.push(window.electronAPI.onDiscussModelUsed((data) => {
+      if (data.characterId) setActualModels(prev => ({ ...prev, [data.characterId]: data.model }));
+    }));
+
+    if (window.electronAPI.onDiscussRetry) cleanup.push(window.electronAPI.onDiscussRetry((data) => {
+      setRetryInfo(data);
+    }));
+
     cleanupRef.current = cleanup;
     return cleanup;
   }, [onMessage, onCharacterStart]);

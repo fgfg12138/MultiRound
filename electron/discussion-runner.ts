@@ -96,7 +96,7 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
           send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk });
         };
         const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
-        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model);
+        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id);
         const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
         const parsed = parseCharacterOutput(rawContent);
         const speechContent = parsed ? parsed.speech : rawContent;
@@ -217,7 +217,7 @@ export async function appendRound(rt: RoundTable): Promise<void> {
       let streamedContent = '';
       const onChunk = (chunk: string) => { streamedContent += chunk; send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); };
       const combinedPrompt = buildCombinedPrompt(rt, ch, nextRound, all);
-      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model);
+      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id);
       const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
       const parsed = parseCharacterOutput(rawContent);
       const speechContent = parsed ? parsed.speech : rawContent;

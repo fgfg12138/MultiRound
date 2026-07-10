@@ -61,7 +61,7 @@ export default function Discussion() {
     currentCharacter, failedCharacters, generateStatus,
     isPaused, awaitingHostInput, hasHistory,
     streamingCharacter,
-    tokenRecords, tokenTotals,
+    tokenRecords, tokenTotals, actualModels, retryInfo,
     startDiscussion, appendRound, stop, pause, resume, sendUserHostInput,
     retryCharacter, reset,
     loadExistingDiscussion,
@@ -243,7 +243,7 @@ export default function Discussion() {
                 ? -1 : getColorIndex(msg.characterId, roundTable.characters);
               const isHost = msg.characterId === 'host';
               return (
-                <div key={msg.id} className={`flex gap-3 max-w-[85%] ${isHost ? 'self-end flex-row-reverse' : ''}`}>
+                <div key={msg.id} className={`flex gap-3 max-w-[85%] ${isHost ? 'self-end flex-row-reverse' : ''} group`}>
                   {/* Avatar */}
                   <div
                     className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0"
@@ -265,6 +265,7 @@ export default function Discussion() {
                   >
                     <div className={`text-xs font-semibold mb-1 ${isHost ? 'text-p700' : 'text-g600'}`}>
                       {msg.characterName}
+                      {actualModels[msg.characterId] && <span className="text-[10px] text-g400 ml-2 bg-g100 px-1.5 py-0.5 rounded">{actualModels[msg.characterId]}</span>}
                     </div>
                     <div className="whitespace-pre-wrap">
                       {editingMsgId === msg.id ? (
@@ -288,7 +289,7 @@ export default function Discussion() {
                             <button onClick={() => setEditingMsgId(msg.id)} className="p-0.5 hover:text-p600" title="编辑">
                               <Pencil className="w-3 h-3" />
                             </button>
-                            <button onClick={() => window.electronAPI.messagesDelete(msg.roundTableId, msg.id)} className="p-0.5 hover:text-error" title="删除">
+                            <button onClick={() => { if (window.confirm('确定删除这条消息吗？')) { window.electronAPI.messagesDelete(msg.roundTableId, msg.id).then(() => window.location.reload()); } }} className="p-0.5 hover:text-error" title="删除">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </span>
@@ -396,6 +397,7 @@ export default function Discussion() {
             <div className="flex items-center gap-3">
               <span className={isRunning ? 'text-p600 font-medium' : ''}>
                 {isRunning ? statusText : ''}
+                {retryInfo && <span className="text-sm text-warning ml-2">正在重试 {retryInfo.retryingCharacter} ({retryInfo.retryAttempt}/{retryInfo.retryMax})...</span>}
               </span>
               {failedNames.length > 0 && !isRunning && (
                 <span className="text-error">{failedNames.length} 个角色生成失败</span>
