@@ -115,7 +115,7 @@ export async function callProviderLLM(
           return m;
         })(),
         messages,
-        max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 1024,
+        max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 4096,
         temperature: temperature ?? 0.8,
       }),
       signal: AbortSignal.timeout(30000), // 30s timeout
@@ -182,7 +182,7 @@ export async function callProviderLLMStream(
           return m;
         })(),
         messages,
-        max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 1024,
+        max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 4096,
         temperature: temperature ?? 0.8,
         stream: true,
       }),

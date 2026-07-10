@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ProviderConfig } from '@/types/electron.d';
 import { BUILTIN_PROVIDERS, generateProviderId } from '@/lib/provider-types';
-import { listProviders, saveProvider, deleteProvider, testProvider, revealProviderKey } from '@/lib/settings-store';
+import { listProviders, saveProvider, updateProvider, deleteProvider, testProvider, revealProviderKey } from '@/lib/settings-store';
 import { useToast } from '@/components/Toast';
 import ModelTagInput from '@/components/ModelTagInput';
 import Layout from '@/components/Layout';
@@ -38,6 +38,7 @@ export default function Settings() {
   const [formSaving, setFormSaving] = useState(false);
   const [showPresetMenu, setShowPresetMenu] = useState(false);
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+const [editingId, setEditingId] = useState<string | null>(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
   useEffect(() => {
@@ -72,13 +73,14 @@ export default function Settings() {
   async function handleSaveProvider(e: React.FormEvent) {
     e.preventDefault();
     if (!formName.trim() || !formBaseUrl.trim() || !formApiKey.trim()) {
+    if (formModels.length === 0 && !formModel.trim()) { showToast({ type: 'warning', message: '请至少添加一个模型（点获取模型或手动输入）' }); return; }
       showToast({ type: 'warning', message: '请填写厂商名称、Base URL 和 API Key' });
       return;
     }
 
     setFormSaving(true);
     const config: ProviderConfig = {
-      id: generateProviderId(),
+      id: editingId || generateProviderId(),
       name: formName.trim(),
       baseUrl: formBaseUrl.trim().replace(/\/+$/, ''),
       apiKey: formApiKey.trim(),
@@ -88,12 +90,13 @@ export default function Settings() {
       isCustom: !BUILTIN_PROVIDERS.some((p) => p.name === formName.trim()),
     };
 
-    const result = await saveProvider(config);
+    const result = editingId ? await updateProvider(editingId, config) : await saveProvider(config);
     setFormSaving(false);
 
     if (result.ok) {
       showToast({ type: 'success', message: `已添加 ${config.name}` });
       setShowAddForm(false);
+      setEditingId(null);
       setFormName(''); setFormBaseUrl(''); setFormApiKey(''); setFormModel(''); setFormModels([]); setFormDefaultModel('');
       await loadProviders();
     } else {
@@ -115,6 +118,17 @@ export default function Settings() {
       setTestStatus(prev => ({ ...prev, [config.id]: 'error' }));
       showToast({ type: 'error', message: `❌ ${config.name} ${result.error || '连接失败'}` });
     }
+  }
+
+  async function handleEdit(p: ProviderConfig) {
+    setFormName(p.name);
+    setFormBaseUrl(p.baseUrl);
+    setFormApiKey('');
+    setFormModel(p.model || '');
+    setFormModels(p.models || []);
+    setFormDefaultModel(p.defaultModel || p.model || '');
+    setEditingId(p.id);
+    setShowAddForm(true);
   }
 
   async function handleDelete(id: string, name: string) {
@@ -215,7 +229,7 @@ export default function Settings() {
           <form onSubmit={handleSaveProvider} className="bg-white rounded-r-xl border-g200 p-s6 mb-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-medium text-g900">添加 LLM 厂商</h3>
-              <button type="button" onClick={() => setShowAddForm(false)} className="p-1 hover:bg-g100 rounded-r-lg">
+              <button type="button" onClick={() => { setShowAddForm(false); setEditingId(null); }} className="p-1 hover:bg-g100 rounded-r-lg">
                 <X className="w-4 h-4 text-g400" />
               </button>
             </div>
@@ -388,6 +402,13 @@ export default function Settings() {
                       title="测试连接">
                       {testingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TestTube className="w-3.5 h-3.5" />}
                       {testingId === p.id ? '测试中...' : '测试连接'}
+                    </button>
+                    <button
+                      onClick={() => handleEdit(p)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-g200 rounded-r-lg hover:bg-g50 transition-colors"
+                      title="编辑">
+                      <SettingsIcon className="w-3.5 h-3.5" />
+                      编辑
                     </button>
                     <button
                       onClick={() => handleDelete(p.id, p.name)}

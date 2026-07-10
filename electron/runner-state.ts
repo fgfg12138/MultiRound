@@ -51,7 +51,7 @@ export function resolveProvider(providerId?: string): ProviderConfig | undefined
   return undefined;
 }
 
-export async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: string, temp?: number, onChunk?: (chunk: string) => void, modelOverride?: string, charId?: string): Promise<{ content?: string; error?: string }> {
+export async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: string, temp?: number, onChunk?: (chunk: string) => void, modelOverride?: string, charId?: string, budget?: number): Promise<{ content?: string; error?: string }> {
   if (sig?.aborted) return { error: '生成已中止' };
   try {
     const p = resolveProvider(provId);
@@ -61,9 +61,9 @@ export async function callLlm(sys: string, user: string, sig?: AbortSignal, prov
     if (modelOverride) console.log('[MODEL_TRACE] override', provId, modelOverride);
     send('discuss:model-used', { providerId: provId, model, characterId: charId || '' });
     if (onChunk) {
-      return await callProviderLLMStream(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], onChunk, temp, sig);
+      return await callProviderLLMStream(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], onChunk, temp, sig, budget);
     }
-    const r = await callProviderLLM(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], temp);
+    const r = await callProviderLLM(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], temp, budget);
     if (sig?.aborted) return { error: '生成已中止' };
     return r.content ? { content: r.content } : { error: r.error || 'LLM 调用返回空' };
   } catch (e: any) {

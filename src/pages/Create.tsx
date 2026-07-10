@@ -271,7 +271,7 @@ export default function Create() {
                 <select value={hostProviderId} onChange={e => { setHostProviderId(e.target.value); setHostModel(''); }} className="w-full min-w-[160px] px-3 py-2 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent bg-white">
                   {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
-                {(() => { const p = providers.find(p => p.id === hostProviderId); const models = p?.models?.filter(Boolean) || []; if (models.length <= 1) return null; return (
+                {(() => { const p = providers.find(p => p.id === hostProviderId); const models = p?.models?.filter(Boolean) || []; if (models.length === 0) return null; return (
                   <select value={hostModel} onChange={e => setHostModel(e.target.value)} className="w-full px-2 py-1.5 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 bg-white mt-1">
                     <option value="">默认 ({p?.defaultModel || models[0]})</option>
                     {models.map(m => <option key={m} value={m}>{m}</option>)}
@@ -334,7 +334,7 @@ export default function Create() {
                           <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full min-w-[160px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
                             {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
-                          {(() => { const p = providers.find(p => p.id === c.providerId); const models = p?.models?.filter(Boolean) || []; if (models.length <= 1) return null; return (
+                          {(() => { const p = providers.find(p => p.id === c.providerId); const models = p?.models?.filter(Boolean) || []; if (models.length === 0) return null; return (
                             <select value={c.model || ''} onChange={e => updateCharacter(i, 'model' as any, e.target.value)} className="w-full min-w-[120px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white mt-1">
                               <option value="">默认 ({p?.defaultModel || models[0]})</option>
                               {models.map(m => <option key={m} value={m}>{m}</option>)}

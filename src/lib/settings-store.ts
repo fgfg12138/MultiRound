@@ -26,6 +26,14 @@ export async function saveProvider(config: ProviderConfig): Promise<{ ok: boolea
   }
 }
 
+export async function updateProvider(id: string, updates: Partial<ProviderConfig>): Promise<{ ok: boolean; error?: string }> {
+  try {
+    return await api().providersUpdate(id, updates);
+  } catch (e: any) {
+    return { ok: false, error: e.message || '更新失败（请确认在 Electron 中运行）' };
+  }
+}
+
 export async function deleteProvider(id: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await api().providersDelete(id);
