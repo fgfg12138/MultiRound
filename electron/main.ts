@@ -957,6 +957,17 @@ ipcMain.handle('discuss:retry-character', async (_event, payload: { roundTableId
     const character = rt.characters?.find((c: any) => c.name === payload.characterName);
     if (!character) return { ok: false, error: '角色未找到' };
 
+      const win = require('electron').BrowserWindow.getAllWindows(); const wins = typeof win === 'object' && win ? (Array.isArray(win) ? win : []) : []; if (wins.length > 0 && !wins[0].isDestroyed()) wins[0].webContents.send('discuss:retry', { roundTableId: payload.roundTableId, retryingCharacter: payload.characterName, retryAttempt: 1, retryMax: 1 });
+    // Emit retry progress event
+    try {
+      const wins = require('electron').BrowserWindow.getAllWindows();
+      if (wins.length > 0 && !wins[0].isDestroyed()) wins[0].webContents.send('discuss:retry', {
+        roundTableId: payload.roundTableId,
+        retryingCharacter: payload.characterName,
+        retryAttempt: 1,
+        retryMax: 1,
+      });
+    } catch {}
     const provider = resolveProvider(payload.providerId || character.providerId);
     if (!provider) return { ok: false, error: '未找到 LLM 厂商配置' };
     const sys = buildSysPrompt();

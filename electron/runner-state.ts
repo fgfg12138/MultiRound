@@ -55,6 +55,7 @@ export async function callLlm(sys: string, user: string, sig?: AbortSignal, prov
   if (sig?.aborted) return { error: '生成已中止' };
   try {
     const p = resolveProvider(provId);
+  if (p) send('discuss:model-used', { providerId: provId, model: p.defaultModel || p.models?.[0] || p.model });
     if (!p) return { content: '', error: '未配置 LLM 厂商' };
     if (onChunk) {
       return await callProviderLLMStream(p, [{ role: 'system', content: sys }, { role: 'user', content: user }], onChunk, temp, sig);

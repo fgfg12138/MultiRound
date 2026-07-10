@@ -160,6 +160,16 @@ try {
       ipcRenderer.on('discuss:stream-chunk', handler);
       return () => ipcRenderer.removeListener('discuss:stream-chunk', handler);
     },
+    onDiscussModelUsed: (callback: (data: { providerId: string; model: string }) => void) => {
+      const handler = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('discuss:model-used', handler);
+      return () => ipcRenderer.removeListener('discuss:model-used', handler);
+    },
+    onDiscussRetry: (callback: (data: { roundTableId: string; retryingCharacter: string; retryAttempt: number; retryMax: number }) => void) => {
+      const handler = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('discuss:retry', handler);
+      return () => ipcRenderer.removeListener('discuss:retry', handler);
+    },
     onDiscussStreamEnd: (callback: (data: { roundTableId: string; characterId: string; characterName: string; content: string; error?: string }) => void) => {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on('discuss:stream-end', handler);
