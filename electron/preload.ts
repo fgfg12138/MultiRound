@@ -32,6 +32,8 @@ try {
       ipcRenderer.invoke('providers:save', config),
     providersDelete: (id: string) =>
       ipcRenderer.invoke('providers:delete', id),
+    providersUpdate: (id: string, updates: Partial<ProviderConfig>) =>
+      ipcRenderer.invoke('providers:update', id, updates),
     providersTest: (config: ProviderConfig) =>
       ipcRenderer.invoke('providers:test', config),
     providersRevealKey: (providerId: string) =>

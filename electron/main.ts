@@ -254,6 +254,20 @@ ipcMain.handle('providers:delete', async (_event, id: string) => {
   return { ok: true };
 });
 
+ipcMain.handle('providers:update', async (_event, id: string, updates: Partial<ProviderConfig>) => {
+  try {
+    const raw = store.get(`${PROVIDER_PREFIX}${id}`);
+    if (typeof raw !== 'string') return { ok: false, error: '厂商不存在' };
+    const stored = JSON.parse(raw) as StoredProviderConfig;
+    const current = decryptProvider(stored);
+    const merged: ProviderConfig = { ...current, ...updates, id };
+    saveProviderToStore(merged);
+    return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || '更新失败' };
+  }
+});
+
 // 测试时从存储解密拿到明文 Key
 ipcMain.handle('providers:test', async (_event, config: ProviderConfig) => {
   // 如果是从列表传来的脱敏对象，从 store 重新获取解密版本
@@ -1071,6 +1085,44 @@ ipcMain.handle('whisper:send-group', async (_event, payload: { roundTableId: str
     return { ok: false, error: error.message || '发送群组消息失败' };
   }
 });
+// ===== Messages Edit/Delete =====
+ipcMain.handle('messages:update', async (_event, roundTableId: string, messageId: string, content: string) => {
+  try {
+    const dataDir = getDataDir();
+    const index = loadIndex(dataDir);
+    const filename = index[roundTableId];
+    if (!filename) return { ok: false, error: '345234206346241214344270215345255230345234250' };
+    const msgsPath = path.join(dataDir, `${filename}_messages.json`);
+    if (!fs.existsSync(msgsPath)) return { ok: false, error: '346266210346201257346226207344273266344270215345255230345234250' };
+    const msgs = JSON.parse(fs.readFileSync(msgsPath, 'utf-8'));
+    const msg = msgs.find((m: any) => m.id === messageId);
+    if (!msg) return { ok: false, error: '346266210346201257346234252346211276345210260' };
+    msg.content = content;
+    atomicWriteJson(msgsPath, msgs);
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e.message || '346233264346226260345244261350264245' };
+  }
+});
+
+ipcMain.handle('messages:delete', async (_event, roundTableId: string, messageId: string) => {
+  try {
+    const dataDir = getDataDir();
+    const index = loadIndex(dataDir);
+    const filename = index[roundTableId];
+    if (!filename) return { ok: false, error: '345234206346241214344270215345255230345234250' };
+    const msgsPath = path.join(dataDir, `${filename}_messages.json`);
+    if (!fs.existsSync(msgsPath)) return { ok: false, error: '346266210346201257346226207344273266344270215345255230345234250' };
+    const msgs = JSON.parse(fs.readFileSync(msgsPath, 'utf-8'));
+    const filtered = msgs.filter((m: any) => m.id !== messageId);
+    if (filtered.length === msgs.length) return { ok: false, error: '346266210346201257346234252346211276345210260' };
+    atomicWriteJson(msgsPath, filtered);
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, error: e.message || '345210240351231244345244261350264245' };
+  }
+});
+
 
 // ===== App Lifecycle =====
 

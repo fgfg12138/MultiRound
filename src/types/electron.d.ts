@@ -32,6 +32,7 @@ export interface ElectronAPI {
   providersList: () => Promise<ProviderConfig[]>;
   providersSave: (config: ProviderConfig) => Promise<{ ok: boolean; error?: string }>;
   providersDelete: (id: string) => Promise<{ ok: boolean }>;
+  providersUpdate: (id: string, updates: Partial<ProviderConfig>) => Promise<{ ok: boolean; error?: string }>;
   providersTest: (config: ProviderConfig) => Promise<{ content?: string; error?: string; code?: string }>;
   providersRevealKey: (providerId: string) => Promise<{ revealed: boolean; key?: string; name?: string; error?: string }>;
   providersFetchModels: (config: { baseUrl: string; apiKey: string }) => Promise<{ ok: boolean; models?: string[]; error?: string }>;
@@ -72,6 +73,8 @@ export interface ElectronAPI {
   onDiscussError: (callback: (err: any) => void) => () => void;
   onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number; phase?: string }) => void) => () => void;
   onDiscussPaused: (callback: (info: { roundTableId: string; round: number }) => void) => () => void;
+  messagesUpdate: (roundTableId: string, messageId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
+  messagesDelete: (roundTableId: string, messageId: string) => Promise<{ ok: boolean; error?: string }>;
 
   // Whisper System
   whisperSend: (payload: { roundTableId: string; recipientId: string; content: string }) => Promise<{ ok: boolean; message?: WhisperMessage }>;
@@ -84,6 +87,8 @@ export interface ElectronAPI {
   // Streaming events
   onDiscussStreamChunk: (callback: (data: { roundTableId: string; characterId: string; characterName: string; chunk: string }) => void) => () => void;
   onDiscussStreamEnd: (callback: (data: { roundTableId: string; characterId: string; characterName: string; content: string; error?: string }) => void) => () => void;
+  messagesUpdate: (roundTableId: string, messageId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
+  messagesDelete: (roundTableId: string, messageId: string) => Promise<{ ok: boolean; error?: string }>;
 
   // Token tracking events
   onDiscussTokenUpdate: (callback: (data: { roundTableId: string; records: TokenRecord[]; characterTotals?: Record<string, { total: number; input: number; output: number }>; totalTokens?: number }) => void) => () => void;

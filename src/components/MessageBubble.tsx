@@ -3,6 +3,18 @@
 
 import type { Message } from '@/lib/types';
 
+/** 清理 LLM 输出中的残留 JSON 片段和 markdown fence */
+function cleanContent(raw: string): string {
+  let s = raw || '';
+  // 移除开头的 {"public":{"speech":" 或 {"speech":"
+  s = s.replace(/^\{?"public"?:\s*\{?"speech"?:\s*"/, '');
+  // 移除结尾的 JSON 残片（",  }}} 等）
+  s = s.replace(/",?\s*\}?\}?\}?\s*$/, '');
+  // 移除 markdown 代码块标记
+  s = s.replace(/^```(?:json)?\s*/gi, '').replace(/\s*```\s*$/gi, '');
+  return s.trim();
+}
+
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg,#818cf8,#6366f1)',
   'linear-gradient(135deg,#34d399,#10b981)',
@@ -67,7 +79,7 @@ export default function MessageBubble({
             </div>
           )}
           <div>
-            {message.content}
+            {cleanContent(message.content)}
             {streaming && (
               <span className="inline-block w-[2px] h-[1em] bg-p500 animate-pulse ml-0.5 align-text-bottom" />
             )}
