@@ -23,7 +23,7 @@ function makeBase(topic: string, desc: string): RoundTable {
 }
 
 /** 技术辩论 */
-export function techDebateTemplate(providerId: string): RoundTable {
+export function techDebateTemplate(providerId = ""): RoundTable {
   const rt = makeBase(
     '技术选型辩论：微服务 vs 单体架构',
     '公司正在从创业期进入成长期，用户量快速增长，现有单体架构面临扩容瓶颈。团队内部对下一步技术路线存在严重分歧。请各方阐述观点并尝试达成共识。',
@@ -39,7 +39,7 @@ export function techDebateTemplate(providerId: string): RoundTable {
 }
 
 /** 产品评审 */
-export function productReviewTemplate(providerId: string): RoundTable {
+export function productReviewTemplate(providerId = ""): RoundTable {
   const rt = makeBase(
     '产品方向决策：AI 辅助编程工具的下一步',
     '产品已上线 6 个月，MAU 增长趋缓。竞品纷纷推出新功能。团队需要决定下一阶段的产品重心。',
@@ -55,7 +55,7 @@ export function productReviewTemplate(providerId: string): RoundTable {
 }
 
 /** 创意头脑风暴 */
-export function brainstormingTemplate(providerId: string): RoundTable {
+export function brainstormingTemplate(providerId = ""): RoundTable {
   const rt = makeBase(
     '创意头脑风暴：下一代社交产品的形态',
     '传统的社交产品增长见顶，Z 世代用户在寻找新的社交方式。从 AI、虚实结合、兴趣匹配等角度展开脑暴。',
@@ -73,7 +73,7 @@ export function brainstormingTemplate(providerId: string): RoundTable {
 }
 
 /** 商业分析 */
-export function businessAnalysisTemplate(providerId: string): RoundTable {
+export function businessAnalysisTemplate(providerId = ""): RoundTable {
   const rt = makeBase(
     '商业分析：是否应该进入海外市场',
     '公司国内业务稳定但增速放缓。海外市场潜力大但风险未知。需要从产品适配、合规、竞争格局等角度分析。',
@@ -89,7 +89,7 @@ export function businessAnalysisTemplate(providerId: string): RoundTable {
 }
 
 /** 学术探讨 */
-export function academicDiscussionTemplate(providerId: string): RoundTable {
+export function academicDiscussionTemplate(providerId = ""): RoundTable {
   const rt = makeBase(
     '学术探讨：AGI 的实现路径与时间线',
     'AI 领域快速发展，各流派对 AGI 的实现路径存在根本性分歧。从 Scaling Law、神经符号、具身智能等角度展开探讨。',
@@ -103,6 +103,42 @@ export function academicDiscussionTemplate(providerId: string): RoundTable {
     { id: generateId(), name: 'Scaling 派', role: '深度学习研究员', persona: '坚信 Scaling Law  + RLHF 足以通向 AGI。引用 GPT-4 到 o1 的推理能力跃迁作为证据。', providerId, stance: 'Scaling is all you need', style: '自信、引用文献' },
     { id: generateId(), name: '符号派', role: '认知科学家', persona: '认为纯连接主义缺少符号操作和因果推理能力。主张神经符号融合。', providerId, stance: '需要神经符号融合架构', style: '批判性、哲学思辨' },
     { id: generateId(), name: '具身派', role: '机器人学教授', persona: '认为没有物理世界交互的 AI 不可能产生真正的智能。引用儿童认知发展理论。', providerId, stance: '具身交互是 AGI 的必要条件', style: '跨学科、实证导向' },
+  ];
+  return rt;
+}
+
+/** 快速圆桌 — 通用讨论模板，providerId 留空供用户手动选择 */
+export function quickMeetingTemplate(providerId = ''): RoundTable {
+  const rt = makeBase(
+    '快速讨论：AI 技术趋势分析',
+    '快速启动一场 AI 技术趋势的圆桌讨论，三位角色从技术、产品、商业三个视角展开分析。主题/背景/角色已预设，只需选择大模型即可开始。',
+  );
+  rt.host.providerId = providerId;
+  rt.goal = { type: 'analysis' as const, description: '分析 AI 技术趋势的关键方向，评估其对产品策略的影响' };
+  rt.characters = [
+    { id: generateId(), name: '技术专家', role: '首席架构师', persona: '关注技术趋势、架构演进与工程可行性。对新技术保持开放但务实的态度。', providerId },
+    { id: generateId(), name: '产品经理', role: '产品负责人', persona: '关注用户体验、需求变化与产品创新。擅长将技术趋势转化为产品机会。', providerId },
+    { id: generateId(), name: '商业分析师', role: '战略分析师', persona: '关注市场格局、商业模式与竞争动态。对技术投资回报率敏感。', providerId },
+  ];
+  return rt;
+}
+
+
+/** 商业讨论 — 市场进入策略 */
+export function marketEntryTemplate(providerId = ''): RoundTable {
+  const rt = makeBase(
+    '商业讨论：是否进入海外市场',
+    '公司国内业务稳定但增速放缓，海外市场潜力大但面临合规、产品适配、竞争三大挑战。请从不同角度分析进入可行性。',
+  );
+  rt.host.providerId = providerId;
+  rt.host.style = '理性、中立、善于追问';
+  rt.goal = { type: 'decision' as const, description: '就海外市场进入策略达成一致意见，明确优先级与风险点' };
+  rt.rules.roundCount = 4;
+  rt.totalRounds = 4;
+  rt.characters = [
+    { id: generateId(), name: '乐观派', role: '国际业务总监', persona: '已经做了初步海外调研，认为东南亚市场接受度高、竞争相对温和。主张快速试水。', providerId },
+    { id: generateId(), name: '保守派', role: 'CFO', persona: '对海外投入的 ROI 持怀疑态度，担心合规成本、汇率风险与团队扩张的管理难度。', providerId },
+    { id: generateId(), name: '分析师', role: '战略分析师', persona: '收集了竞品海外数据，认为差异化切入点存在但窗口期有限。建议轻资产模式试水。', providerId },
   ];
   return rt;
 }

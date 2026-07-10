@@ -8,6 +8,7 @@ import { generateId, CURRENT_SCHEMA_VERSION } from '@/lib/types';
 import { saveRoundTable } from '@/lib/storage';
 import { listProviders } from '@/lib/settings-store';
 import { createDefaultSecret, createDefaultMemory, withDefaults, parseLines, toLines } from '@/lib/create-helpers';
+import { quickMeetingTemplate, marketEntryTemplate, techDebateTemplate } from '@/lib/templates';
 import { useToast } from '@/components/Toast';
 import Layout from '@/components/Layout';
 import { Plus, Play, Settings, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
@@ -100,6 +101,31 @@ export default function Create() {
   }
   function removeTeam(idx: number) { setTeams(teams.filter((_, i) => i !== idx)); }
 
+  function applyTemplate(tpl: any) {
+    setScenarioTitle(tpl.topic || '');
+    setScenarioDesc(tpl.scenario?.description || '');
+    setAtmosphere(tpl.scenario?.atmosphere || 'formal');
+    setHostName(tpl.host?.name || '主持人');
+    setHostStyle(tpl.host?.style || '中立、控场');
+    setHostMode(tpl.host?.mode || 'visible');
+    setHostProviderId('');
+    setHostModel('');
+    setCharacters((tpl.characters || []).map((c: any) => withDefaults({
+      ...c, providerId: '', model: '', stance: c.stance || '', style: c.style || '',
+    })));
+    setTeams(tpl.teams || []);
+    setUnlimitedRounds(tpl.totalRounds === 0);
+    setRoundCount(tpl.totalRounds || 3);
+    setSpeakOrder(tpl.rules?.speakOrder || 'sequential');
+    setMaxSpeechLength(tpl.rules?.maxSpeechLength || 300);
+    setScoringEnabled(tpl.rules?.scoringEnabled || false);
+    setForbiddenTopics((tpl.rules?.forbiddenTopics || []).join(', '));
+    setGoalType(tpl.goal?.type || 'custom');
+    setGoalDesc(tpl.goal?.description || '');
+    setGoalCriteria(tpl.goal?.successCriteria || '');
+    setError('');
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
@@ -156,6 +182,12 @@ export default function Create() {
           </div>
           <h2 className="text-lg font-semibold text-g900 mb-2">需要先配置 LLM 厂商</h2>
           <p className="text-sm text-g500 mb-6">在开始创建圆桌之前，请先前往设置页添加至少一个 LLM 厂商。</p>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <span className="text-xs text-g400 mr-1 self-center">u5febu901fu6a21u677f:</span>
+          <button type="button" onClick={() => applyTemplate(quickMeetingTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">AI u8d8bu52bfu5206u6790</button>
+          <button type="button" onClick={() => applyTemplate(marketEntryTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6d77u5916u5e02u573a</button>
+          <button type="button" onClick={() => applyTemplate(techDebateTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6280u672fu8fa9u8bba</button>
+        </div>
           <button onClick={() => navigate('/settings')} className="inline-flex items-center gap-2 px-6 py-3 bg-p600 text-white rounded-r-lg font-medium hover:bg-p700 transition-colors shadow-md shadow-p200">
             <Settings className="w-5 h-5" />前往设置
           </button>
@@ -172,6 +204,12 @@ export default function Create() {
     <Layout title="创建圆桌" showBack backTo="/">
       <div className="max-w-3xl mx-auto w-full px-4 py-6">
         <p className="text-sm text-g500 mb-6">设置讨论主题、主持人和参与角色</p>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <span className="text-xs text-g400 mr-1 self-center">u5febu901fu6a21u677f:</span>
+          <button type="button" onClick={() => applyTemplate(quickMeetingTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">AI u8d8bu52bfu5206u6790</button>
+          <button type="button" onClick={() => applyTemplate(marketEntryTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6d77u5916u5e02u573a</button>
+          <button type="button" onClick={() => applyTemplate(techDebateTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6280u672fu8fa9u8bba</button>
+        </div>
         <form onSubmit={handleSubmit} className="space-y-6 pb-24">
 
           {/* ===== 1. 场景 ===== */}

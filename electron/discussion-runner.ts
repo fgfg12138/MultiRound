@@ -91,9 +91,22 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
         }
         send('discuss:character-start', ch.name);
         let streamedContent = '';
+        const parser = new StreamingJsonParser();
+        let lastSpeechLen = 0;
+        let fallbackToRaw = false;
         const onChunk = (chunk: string) => {
           streamedContent += chunk;
-          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk });
+          if (fallbackToRaw) { send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); return; }
+          const res = parser.feedChunk(chunk);
+          const speech = res.speechBuffer;
+          if (speech.length > lastSpeechLen) {
+            const delta = speech.slice(lastSpeechLen);
+            lastSpeechLen = speech.length;
+            send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: delta });
+          } else if (streamedContent.length > 10 && !streamedContent.trimStart().startsWith('{')) {
+            fallbackToRaw = true;
+            send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
+          }
         };
         const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
         const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id);
@@ -215,7 +228,23 @@ export async function appendRound(rt: RoundTable): Promise<void> {
       }
       send('discuss:character-start', ch.name);
       let streamedContent = '';
-      const onChunk = (chunk: string) => { streamedContent += chunk; send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); };
+      const parser = new StreamingJsonParser();
+      let lastSpeechLen = 0;
+      let fallbackToRaw = false;
+      const onChunk = (chunk: string) => {
+        streamedContent += chunk;
+        if (fallbackToRaw) { send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); return; }
+        const res = parser.feedChunk(chunk);
+        const speech = res.speechBuffer;
+        if (speech.length > lastSpeechLen) {
+          const delta = speech.slice(lastSpeechLen);
+          lastSpeechLen = speech.length;
+          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: delta });
+        } else if (streamedContent.length > 10 && !streamedContent.trimStart().startsWith('{')) {
+          fallbackToRaw = true;
+          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
+        }
+      };
       const combinedPrompt = buildCombinedPrompt(rt, ch, nextRound, all);
       const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id);
       const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);

@@ -8,6 +8,7 @@ import { saveRoundTable, listRoundTables, deleteRoundTable, saveMessages } from 
 import { useToast } from '@/components/Toast';
 import type { ProviderConfig } from '@/types/electron.d';
 import Layout from '@/components/Layout';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import {
   MessageSquarePlus, History, MessageCircle, Sparkles,
   Settings, AlertCircle, Search, Trash2, Copy, Download,
@@ -19,6 +20,7 @@ export default function Home() {
   const { showToast } = useToast();
   const [history, setHistory] = useState<any[]>([]);
   const [filtered, setFiltered] = useState<any[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; topic: string } | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,7 +55,12 @@ export default function Home() {
   }, [searchQuery, history]);
 
   async function handleDelete(id: string, topic: string) {
-    if (!window.confirm(`确定删除「${topic.slice(0, 30)}」吗？\n聊天记录也会一起删除。`)) return;
+    setConfirmDelete({ id, topic });
+  }
+
+  async function doDelete(id: string, topic: string) {
+    setConfirmDelete(null);
+    
     await deleteRoundTable(id);
     showToast({ type: 'info', message: '已删除' });
     loadHistory();
@@ -242,6 +249,16 @@ export default function Home() {
           ))}
         </div>
       </section>
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="删除圆桌"
+        message={`确定删除「${confirmDelete?.topic?.slice(0, 30) || ""}」吗？聊天记录也会一起删除。`}
+        variant="danger"
+        confirmLabel="删除"
+        cancelLabel="取消"
+        onConfirm={() => { if (confirmDelete) doDelete(confirmDelete.id, confirmDelete.topic); }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </Layout>
   );
 }

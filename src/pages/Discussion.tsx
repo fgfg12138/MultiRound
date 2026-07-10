@@ -304,7 +304,7 @@ export default function Discussion() {
                             <button onClick={() => setEditingMsgId(msg.id)} className="p-0.5 hover:text-p600" title="编辑">
                               <Pencil className="w-3 h-3" />
                             </button>
-                            <button onClick={() => { if (window.confirm('确定删除这条消息吗？')) { window.electronAPI.messagesDelete(msg.roundTableId, msg.id); setDismissedIds(prev => [...prev, msg.id]); } }} className="p-0.5 hover:text-error" title="删除">
+                            <button onClick={() => { { window.electronAPI.messagesDelete(msg.roundTableId, msg.id); setDismissedIds(prev => [...prev, msg.id]); } }} className="p-0.5 hover:text-error" title="删除">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </span>
