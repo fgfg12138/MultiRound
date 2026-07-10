@@ -271,24 +271,12 @@ export default function Settings() {
               </div>
               <div>
                 <label className="block text-xs text-g500 mb-1">
-                  模型名称
-                  <span className="text-g300 ml-1 cursor-help" title="填写 Base URL 后可点击「获取模型」自动拉取">ⓘ</span>
+                  模型列表
+                  <span className="text-g300 ml-1 cursor-help" title="可添加多个模型，创建圆桌时为每个角色选择">ⓘ</span>
                 </label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input type="text" value={formModel} onChange={(e) => { setFormModel(e.target.value); setShowModelDropdown(false); }}
-                      placeholder="如：deepseek-chat"
-                      className="w-full px-3 py-2 text-sm border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent" />
-                    {showModelDropdown && fetchedModels.length > 0 && (
-                      <div className="absolute top-full mt-1 left-0 w-full bg-white border-g200 rounded-r-xl shadow-lg z-20 max-h-48 overflow-y-auto">
-                        {fetchedModels.map(m => (
-                          <button key={m} type="button"
-                            onClick={() => { setFormModel(m); setShowModelDropdown(false); }}
-                            className={`w-full text-left px-3 py-2 text-sm hover:bg-p50 transition-colors ${formModel === m ? 'bg-p50 text-p700 font-medium' : 'text-g700'}`}
-                          >{m}</button>
-                        ))}
-                      </div>
-                    )}
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <ModelTagInput models={formModels} onChange={setFormModels} error={formModels.length === 0 ? '至少添加一个模型' : undefined} />
                   </div>
                   <button type="button"
                     onClick={async () => {
@@ -298,9 +286,9 @@ export default function Settings() {
                         if (!window.electronAPI?.providersFetchModels) { showToast({ type: 'error', message: '此功能仅在 Electron 桌面应用中可用' }); return; }
                         const result = await window.electronAPI.providersFetchModels({ baseUrl: formBaseUrl.trim(), apiKey: formApiKey.trim() });
                         if (result.ok && result.models?.length) {
-                          setFetchedModels(result.models);
-                          setShowModelDropdown(true);
-                          showToast({ type: 'success', message: `找到 ${result.models.length} 个模型，请在下方选择` });
+                          setFormModels(result.models);
+                          setFormDefaultModel(result.models[0]);
+                          showToast({ type: 'success', message: '找到 ' + result.models.length + ' 个模型' });
                         } else {
                           showToast({ type: 'error', message: result.error || '获取失败，请手动输入模型名' });
                         }
@@ -311,6 +299,14 @@ export default function Settings() {
                     disabled={formSaving}
                     className="shrink-0 px-3 py-2 text-sm bg-g100 hover:bg-g200 rounded-r-lg transition-colors disabled:opacity-50 whitespace-nowrap">获取模型</button>
                 </div>
+                {formModels.length > 1 && (
+                  <div className="mt-2">
+                    <label className="block text-xs text-g500 mb-1">默认模型</label>
+                    <select value={formDefaultModel} onChange={e => setFormDefaultModel(e.target.value)} className="w-full px-3 py-2 text-sm border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 bg-white">
+                      {formModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
 
