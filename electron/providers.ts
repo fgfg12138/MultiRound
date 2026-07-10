@@ -109,7 +109,11 @@ export async function callProviderLLM(
         Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: provider.defaultModel || provider.models?.[0] || provider.model,
+        model: (() => {
+          const m = provider.defaultModel || provider.models?.[0] || provider.model;
+          if (!m || m === 'default') throw new Error(`${provider.name} 未配置模型名，请在设置页填写`);
+          return m;
+        })(),
         messages,
         max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 1024,
         temperature: temperature ?? 0.8,
@@ -172,7 +176,11 @@ export async function callProviderLLMStream(
         Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model: provider.defaultModel || provider.models?.[0] || provider.model,
+        model: (() => {
+          const m = provider.defaultModel || provider.models?.[0] || provider.model;
+          if (!m || m === 'default') throw new Error(`${provider.name} 未配置模型名，请在设置页填写`);
+          return m;
+        })(),
         messages,
         max_tokens: remainingBudget !== undefined ? Math.min(remainingBudget, 4096) : 1024,
         temperature: temperature ?? 0.8,

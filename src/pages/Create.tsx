@@ -33,6 +33,7 @@ export default function Create() {
   const [hostStyle, setHostStyle] = useState('中立、控场、善于追问');
   const [hostMode, setHostMode] = useState<'visible' | 'invisible' | 'user'>('visible');
   const [hostProviderId, setHostProviderId] = useState('');
+  const [hostModel, setHostModel] = useState('');
 
   // Teams
   const [teams, setTeams] = useState<Team[]>([]);
@@ -103,6 +104,8 @@ export default function Create() {
     e.preventDefault();
     setError('');
     if (providers.length === 0) { setError('请先在设置页配置至少一个 LLM 厂商'); return; }
+    const noModelProviders = providers.filter(p => !p.defaultModel && !p.models?.length && !p.model);
+    if (noModelProviders.length > 0) { setError(`厂商「${noModelProviders[0].name}」未配置模型名，请先到设置页填写`); return; }
     if (!scenarioTitle.trim()) { setError('请输入讨论主题'); return; }
     const validChars = characters.filter(c => c.name.trim());
     if (validChars.length < 2) { setError('至少需要 2 个有名称的角色'); return; }
@@ -227,9 +230,15 @@ export default function Create() {
               </div>
               <div>
                 <label className="block text-xs text-g500 mb-1">模型厂商</label>
-                <select value={hostProviderId} onChange={e => setHostProviderId(e.target.value)} className="w-full min-w-[160px] px-3 py-2 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent bg-white">
-                  {providers.map(p => <option key={p.id} value={p.id}>{`${p.name} — ${(p.defaultModel || p.models?.[0] || p.model || "未设模型")}`}</option>)}
+                <select value={hostProviderId} onChange={e => { setHostProviderId(e.target.value); setHostModel(''); }} className="w-full min-w-[160px] px-3 py-2 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent bg-white">
+                  {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
+                {(() => { const p = providers.find(p => p.id === hostProviderId); const models = p?.models?.filter(Boolean) || []; if (models.length <= 1) return null; return (
+                  <select value={hostModel} onChange={e => setHostModel(e.target.value)} className="w-full px-2 py-1.5 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 bg-white mt-1">
+                    <option value="">默认 ({p?.defaultModel || models[0]})</option>
+                    {models.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                ); })()}
               </div>
             </div>
           </section>
@@ -285,8 +294,14 @@ export default function Create() {
                         <td className="py-2 px-2 min-w-[200px]"><textarea value={c.persona} onChange={e => updateCharacter(i, 'persona', e.target.value)} placeholder="角色人设：性格、背景、立场、说话方式..." rows={2} className="w-full px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 resize-none" /></td>
                         <td className="py-2 px-2">
                           <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full min-w-[160px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
-                            {providers.map(p => <option key={p.id} value={p.id}>{`${p.name} — ${(p.defaultModel || p.models?.[0] || p.model || "未设模型")}`}</option>)}
+                            {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
+                          {(() => { const p = providers.find(p => p.id === c.providerId); const models = p?.models?.filter(Boolean) || []; if (models.length <= 1) return null; return (
+                            <select value={c.model || ''} onChange={e => updateCharacter(i, 'model' as any, e.target.value)} className="w-full min-w-[120px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white mt-1">
+                              <option value="">默认 ({p?.defaultModel || models[0]})</option>
+                              {models.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          ); })()}
                         </td>
                         <td className="py-2 px-2">
                           <select value={c.teamId || ''} onChange={e => updateCharacter(i, 'teamId', e.target.value)} className="w-full min-w-[80px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
