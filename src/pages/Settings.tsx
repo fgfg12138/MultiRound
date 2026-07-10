@@ -84,9 +84,9 @@ const [editingId, setEditingId] = useState<string | null>(null);
       name: formName.trim(),
       baseUrl: formBaseUrl.trim().replace(/\/+$/, ''),
       apiKey: formApiKey.trim(),
-      model: formDefaultModel || formModels[0] || formModel.trim() || 'default',
-      models: formModels.length > 0 ? formModels : (formModel.trim() ? [formModel.trim()] : ['default']),
-      defaultModel: formDefaultModel || formModels[0] || formModel.trim() || 'default',
+      model: formDefaultModel || formModels[0] || formModel.trim() || "",
+      models: formModels.length > 0 ? formModels.filter(m => m && m !== 'default') : (formModel.trim() ? [formModel.trim()] : []),
+      defaultModel: formDefaultModel || formModels[0] || formModel.trim() || "",
       isCustom: !BUILTIN_PROVIDERS.some((p) => p.name === formName.trim()),
     };
 

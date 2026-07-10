@@ -334,12 +334,18 @@ export default function Create() {
                           <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full min-w-[160px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
                             {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
-                          {(() => { const p = providers.find(p => p.id === c.providerId); const models = p?.models?.filter(Boolean) || []; if (models.length === 0) return null; return (
-                            <select value={c.model || ''} onChange={e => updateCharacter(i, 'model' as any, e.target.value)} className="w-full min-w-[120px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white mt-1">
-                              <option value="">默认 ({p?.defaultModel || models[0]})</option>
-                              {models.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                          ); })()}
+                          {(() => {
+                            const p = providers.find(p => p.id === c.providerId);
+                            const models = (p?.models || []).filter(m => m && m !== 'default');
+                            if (models.length === 0) return <p className="text-xs text-g400 mt-1">该商本未配置可用模型</p>;
+                            if (models.length === 1) return <p className="text-xs text-g400 mt-1">将使例型型：{models[0]}</p>;
+                            return (
+                              <select value={c.model || ''} onChange={e => updateCharacter(i, 'model' as any, e.target.value)} className="w-full min-w-[120px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white mt-1">
+                                <option value="">默认 ({p?.defaultModel || models[0]})</option>
+                                {models.map(m => <option key={m} value={m}>{m}</option>)}
+                              </select>
+                            );
+                          })()}
                         </td>
                         <td className="py-2 px-2">
                           <select value={c.teamId || ''} onChange={e => updateCharacter(i, 'teamId', e.target.value)} className="w-full min-w-[80px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
