@@ -87,8 +87,6 @@ export interface ElectronAPI {
   // Streaming events
   onDiscussStreamChunk: (callback: (data: { roundTableId: string; characterId: string; characterName: string; chunk: string }) => void) => () => void;
   onDiscussStreamEnd: (callback: (data: { roundTableId: string; characterId: string; characterName: string; content: string; error?: string }) => void) => () => void;
-  messagesUpdate: (roundTableId: string, messageId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
-  messagesDelete: (roundTableId: string, messageId: string) => Promise<{ ok: boolean; error?: string }>;
 
   // Token tracking events
   onDiscussTokenUpdate: (callback: (data: { roundTableId: string; records: TokenRecord[]; characterTotals?: Record<string, { total: number; input: number; output: number }>; totalTokens?: number }) => void) => () => void;

@@ -957,10 +957,9 @@ ipcMain.handle('discuss:retry-character', async (_event, payload: { roundTableId
     const character = rt.characters?.find((c: any) => c.name === payload.characterName);
     if (!character) return { ok: false, error: '角色未找到' };
 
-      const win = require('electron').BrowserWindow.getAllWindows(); const wins = typeof win === 'object' && win ? (Array.isArray(win) ? win : []) : []; if (wins.length > 0 && !wins[0].isDestroyed()) wins[0].webContents.send('discuss:retry', { roundTableId: payload.roundTableId, retryingCharacter: payload.characterName, retryAttempt: 1, retryMax: 1 });
     // Emit retry progress event
     try {
-      const wins = require('electron').BrowserWindow.getAllWindows();
+      const wins = BrowserWindow.getAllWindows();
       if (wins.length > 0 && !wins[0].isDestroyed()) wins[0].webContents.send('discuss:retry', {
         roundTableId: payload.roundTableId,
         retryingCharacter: payload.characterName,
@@ -1102,17 +1101,17 @@ ipcMain.handle('messages:update', async (_event, roundTableId: string, messageId
     const dataDir = getDataDir();
     const index = loadIndex(dataDir);
     const filename = index[roundTableId];
-    if (!filename) return { ok: false, error: '345234206346241214344270215345255230345234250' };
+    if (!filename) return { ok: false, error: '圆桌不存在' };
     const msgsPath = path.join(dataDir, `${filename}_messages.json`);
-    if (!fs.existsSync(msgsPath)) return { ok: false, error: '346266210346201257346226207344273266344270215345255230345234250' };
+    if (!fs.existsSync(msgsPath)) return { ok: false, error: '消息文件不存在' };
     const msgs = JSON.parse(fs.readFileSync(msgsPath, 'utf-8'));
     const msg = msgs.find((m: any) => m.id === messageId);
-    if (!msg) return { ok: false, error: '346266210346201257346234252346211276345210260' };
+    if (!msg) return { ok: false, error: '消息未找到' };
     msg.content = content;
     atomicWriteJson(msgsPath, msgs);
     return { ok: true };
   } catch (e: any) {
-    return { ok: false, error: e.message || '346233264346226260345244261350264245' };
+    return { ok: false, error: e.message || '更新失败' };
   }
 });
 
@@ -1121,16 +1120,16 @@ ipcMain.handle('messages:delete', async (_event, roundTableId: string, messageId
     const dataDir = getDataDir();
     const index = loadIndex(dataDir);
     const filename = index[roundTableId];
-    if (!filename) return { ok: false, error: '345234206346241214344270215345255230345234250' };
+    if (!filename) return { ok: false, error: '圆桌不存在' };
     const msgsPath = path.join(dataDir, `${filename}_messages.json`);
-    if (!fs.existsSync(msgsPath)) return { ok: false, error: '346266210346201257346226207344273266344270215345255230345234250' };
+    if (!fs.existsSync(msgsPath)) return { ok: false, error: '消息文件不存在' };
     const msgs = JSON.parse(fs.readFileSync(msgsPath, 'utf-8'));
     const filtered = msgs.filter((m: any) => m.id !== messageId);
-    if (filtered.length === msgs.length) return { ok: false, error: '346266210346201257346234252346211276345210260' };
+    if (filtered.length === msgs.length) return { ok: false, error: '消息未找到' };
     atomicWriteJson(msgsPath, filtered);
     return { ok: true };
   } catch (e: any) {
-    return { ok: false, error: e.message || '345210240351231244345244261350264245' };
+    return { ok: false, error: e.message || '删除失败' };
   }
 });
 

@@ -16,7 +16,19 @@ import {
   ChevronRight,
   Square,
   RefreshCw,
+  Pencil,
+  Trash2,
+  X,
+  Check,
 } from 'lucide-react';
+
+function cleanContent(raw: string): string {
+  let s = raw || '';
+  s = s.replace(/^\{?"public"?:\s*\{?"speech"?:\s*"/, '');
+  s = s.replace(/",?\s*\}?\}?\}?\s*$/, '');
+  s = s.replace(/^\`\`\`(?:json)?\s*/gi, '').replace(/\s*\`\`\`\s*$/gi, '');
+  return s.trim();
+}
 
 const AVATAR_GRADIENTS = [
   'linear-gradient(135deg,#818cf8,#6366f1)',
@@ -41,6 +53,7 @@ export default function Discussion() {
   const roundTableRef = useRef<RoundTable | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [whisperTabActive, setWhisperTabActive] = useState(false);
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [roundTable, setRoundTable] = useState<RoundTable | null>(null);
 
   const {
@@ -254,7 +267,41 @@ export default function Discussion() {
                       {msg.characterName}
                     </div>
                     <div className="whitespace-pre-wrap">
-                      {msg.content}
+                      {editingMsgId === msg.id ? (
+                        <textarea
+                          defaultValue={msg.content}
+                          className="w-full px-2 py-1 text-sm border border-p300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 resize-none"
+                          rows={3}
+                          ref={(el) => { if (el) setTimeout(() => el.focus(), 0); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              window.electronAPI.messagesUpdate(msg.roundTableId || msg.id, msg.id, e.currentTarget.value);
+                              setEditingMsgId(null);
+                            }
+                            if (e.key === 'Escape') setEditingMsgId(null);
+                          }}
+                        />
+                      ) : (
+                        <>{cleanContent(msg.content)}
+                        {editingMsgId === null && !isHost && !streamingCharacter && (
+                          <span className="inline-flex gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity align-middle">
+                            <button onClick={() => setEditingMsgId(msg.id)} className="p-0.5 hover:text-p600" title="编辑">
+                              <Pencil className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => window.electronAPI.messagesDelete(msg.roundTableId, msg.id)} className="p-0.5 hover:text-error" title="删除">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </span>
+                        )}
+                        {!isHost && !streamingCharacter && editingMsgId === null && (
+                          <span className="text-[10px] text-g400 ml-2">
+                            {tokenRecords.filter(r => r.characterId === msg.characterId && r.round === msg.round).reduce((s, r) => s + (r.estimatedInputTokens || 0) + (r.estimatedOutputTokens || 0), 0) > 0 && (
+                              <>{tokenRecords.filter(r => r.characterId === msg.characterId && r.round === msg.round).reduce((s, r) => s + (r.estimatedInputTokens || 0) + (r.estimatedOutputTokens || 0), 0)} tokens</>
+                            )}
+                          </span>
+                        )}
+                        </>
+                      )}
                       {streamingCharacter === msg.characterName && (
                         <span className="inline-block w-[2px] h-[1em] bg-p500 animate-pulse ml-0.5 align-text-bottom" />
                       )}
