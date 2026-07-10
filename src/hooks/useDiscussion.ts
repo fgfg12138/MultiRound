@@ -152,7 +152,7 @@ export function useDiscussion() {
     }));
 
     if (window.electronAPI.onDiscussRetry) cleanup.push(window.electronAPI.onDiscussRetry((data) => {
-      setRetryInfo(data);
+      setRetryInfo(data); setTimeout(() => setRetryInfo(null), 3000);
     }));
 
     cleanupRef.current = cleanup;

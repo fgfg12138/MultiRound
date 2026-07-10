@@ -12,6 +12,8 @@ export interface ProviderConfig {
   models?: string[];
   defaultModel?: string;
   isCustom: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 export interface ElectronAPI {

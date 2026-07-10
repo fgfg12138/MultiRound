@@ -24,9 +24,23 @@ import {
 
 function cleanContent(raw: string): string {
   let s = raw || '';
+  // Level 1: Strip JSON prefix {"public":{"speech":"
   s = s.replace(/^\{?"public"?:\s*\{?"speech"?:\s*"/, '');
-  s = s.replace(/",?\s*\}?\}?\}?\s*$/, '');
+  // Level 2: Strip markdown code fences
   s = s.replace(/^\`\`\`(?:json)?\s*/gi, '').replace(/\s*\`\`\`\s*$/gi, '');
+  // Level 3: Strip structured result JSON ({\"conclusion\": ...)
+  const jsonMatch = s.match(/^\{[\s\S]*\}$/);
+  if (jsonMatch) {
+    try { const parsed = JSON.parse(jsonMatch[0]); if (parsed.conclusion || parsed.consensusPoints) { return ''; } } catch {}
+  }
+  // Level 4: Extract human text from truncated JSON residue
+  const start = s.indexOf('{');
+  const end = s.lastIndexOf('}');
+  if (start >= 0 && end >= 0 && end > start) {
+    const textBefore = s.slice(0, start).trim();
+    const textAfter = s.slice(end + 1).trim();
+    s = (textBefore + ' ' + textAfter).trim();
+  }
   return s.trim();
 }
 
@@ -54,6 +68,7 @@ export default function Discussion() {
   const [loaded, setLoaded] = useState(false);
   const [whisperTabActive, setWhisperTabActive] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [roundTable, setRoundTable] = useState<RoundTable | null>(null);
 
   const {
@@ -238,7 +253,7 @@ export default function Discussion() {
               </div>
             )}
 
-            {messages.map((msg) => {
+            {messages.filter(m => !dismissedIds.includes(m.id)).map((msg) => {
               const colorIdx = msg.characterId === 'host'
                 ? -1 : getColorIndex(msg.characterId, roundTable.characters);
               const isHost = msg.characterId === 'host';
@@ -289,7 +304,7 @@ export default function Discussion() {
                             <button onClick={() => setEditingMsgId(msg.id)} className="p-0.5 hover:text-p600" title="编辑">
                               <Pencil className="w-3 h-3" />
                             </button>
-                            <button onClick={() => { if (window.confirm('确定删除这条消息吗？')) { window.electronAPI.messagesDelete(msg.roundTableId, msg.id).then(() => window.location.reload()); } }} className="p-0.5 hover:text-error" title="删除">
+                            <button onClick={() => { if (window.confirm('确定删除这条消息吗？')) { window.electronAPI.messagesDelete(msg.roundTableId, msg.id); setDismissedIds(prev => [...prev, msg.id]); } }} className="p-0.5 hover:text-error" title="删除">
                               <Trash2 className="w-3 h-3" />
                             </button>
                           </span>

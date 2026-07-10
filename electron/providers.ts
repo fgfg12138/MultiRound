@@ -11,6 +11,8 @@ export interface ProviderConfig {
   models?: string[];
   defaultModel?: string;
   isCustom: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 /** 磁盘存储格式 — apiKey 已加密 */
@@ -23,6 +25,8 @@ export interface StoredProviderConfig {
   models?: string[];
   defaultModel?: string;
   isCustom: boolean;
+  createdAt?: number;
+  updatedAt?: number;
 }
 
 interface LlmResponse {
@@ -44,6 +48,8 @@ export function encryptProvider(config: ProviderConfig): StoredProviderConfig {
     models: config.models || [config.model],
     defaultModel: config.defaultModel || config.model,
     isCustom: config.isCustom,
+    createdAt: config.createdAt || Date.now(),
+    updatedAt: Date.now(),
   };
 }
 
@@ -58,6 +64,8 @@ export function decryptProvider(stored: StoredProviderConfig): ProviderConfig {
     models: stored.models || [stored.model],
     defaultModel: stored.defaultModel || stored.model,
     isCustom: stored.isCustom,
+    createdAt: stored.createdAt,
+    updatedAt: stored.updatedAt,
   };
 }
 
@@ -72,6 +80,8 @@ export function maskProviderForUI(stored: StoredProviderConfig): ProviderConfig 
     models: stored.models || [stored.model],
     defaultModel: stored.defaultModel || stored.model,
     isCustom: stored.isCustom,
+    createdAt: stored.createdAt,
+    updatedAt: stored.updatedAt,
   };
 }
 
