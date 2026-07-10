@@ -235,6 +235,27 @@ export async function callProviderLLMStream(
     }
 
     if (!fullContent) {
+      try {
+        const rm = provider.defaultModel || provider.models?.[0] || provider.model;
+        if (rm && rm !== 'default') {
+          const retryRes = await fetch(provider.baseUrl + '/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + provider.apiKey },
+            body: JSON.stringify({ model: rm, messages: messages, max_tokens: 2048, temperature: temperature ?? 0.8, stream: true }),
+            signal: AbortSignal.timeout(30000),
+          });
+          if (retryRes.ok) {
+            const reader = retryRes.body?.getReader();
+            if (reader) {
+              let rc = '';
+              while (true) { const { done, value } = await reader.read(); if (done) break; rc += new TextDecoder().decode(value, { stream: true }); }
+              if (rc) fullContent = rc;
+            }
+          }
+        }
+      } catch {}
+    }
+    if (!fullContent) {
       return { error: `${provider.name} 返回了空内容`, code: 'EMPTY_RESPONSE' };
     }
     return { content: fullContent };
