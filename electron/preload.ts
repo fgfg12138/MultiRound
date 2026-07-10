@@ -2,7 +2,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import type { ProviderConfig } from './providers.js';
-import type { WhisperMessage, WhisperGroup } from './types.js';
+import type { WhisperMessage, WhisperGroup, TokenRecord } from './types.js';
 
 try {
   contextBridge.exposeInMainWorld('electronAPI', {
@@ -162,6 +162,11 @@ try {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on('discuss:stream-end', handler);
       return () => ipcRenderer.removeListener('discuss:stream-end', handler);
+    },
+    onDiscussTokenUpdate: (callback: (data: { roundTableId: string; records: TokenRecord[]; characterTotals?: Record<string, { total: number; input: number; output: number }>; totalTokens?: number }) => void) => {
+      const handler = (_event: any, data: any) => callback(data);
+      ipcRenderer.on('discuss:token-update', handler);
+      return () => ipcRenderer.removeListener('discuss:token-update', handler);
     },
 
     // Generic storage

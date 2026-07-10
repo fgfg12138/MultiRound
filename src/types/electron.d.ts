@@ -9,6 +9,8 @@ export interface ProviderConfig {
   baseUrl: string;
   apiKey: string;
   model: string;
+  models?: string[];
+  defaultModel?: string;
   isCustom: boolean;
 }
 
@@ -84,17 +86,7 @@ export interface ElectronAPI {
   onDiscussStreamEnd: (callback: (data: { roundTableId: string; characterId: string; characterName: string; content: string; error?: string }) => void) => () => void;
 
   // Token tracking events
-  onDiscussTokenUpdate: (callback: (data: {
-    records: TokenRecord[];
-    characterTotals: Record<string, { total: number; input: number; output: number }>;
-    totalTokens: number;
-  }) => void) => () => void;
-
-  // Generic storage
-  storageGet: (key: string) => Promise<unknown>;
-  storageSet: (key: string, value: unknown) => Promise<boolean>;
-  storageDelete: (key: string) => Promise<boolean>;
-  storageList: (prefix: string) => Promise<string[]>;
+  onDiscussTokenUpdate: (callback: (data: { roundTableId: string; records: TokenRecord[]; characterTotals?: Record<string, { total: number; input: number; output: number }>; totalTokens?: number }) => void) => () => void;
 }
 
 declare global {

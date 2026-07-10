@@ -921,6 +921,11 @@ ipcMain.handle('discuss:pause', async (_event, roundTableId: string) => {
   return { ok: true };
 });
 
+ipcMain.handle('discuss:resume', async (_event, roundTableId: string) => {
+  resumeDiscussion(roundTableId);
+  return { ok: true };
+});
+
 ipcMain.handle('discuss:retry-character', async (_event, payload: { roundTableId: string; characterName: string; round: number; providerId?: string }) => {
   try {
     const dataDir = getDataDir();

@@ -10,6 +10,36 @@ import Layout from '@/components/Layout';
 import MessageBubble from '@/components/MessageBubble';
 import { Copy, Check, RefreshCw, Loader2, FileText, Play } from 'lucide-react';
 
+interface StructuredData {
+  conclusion?: string;
+  consensusPoints?: string[];
+  disagreementPoints?: string[];
+  goalAchieved?: string;
+  recommendations?: string[];
+}
+
+function parseStructuredResult(raw: string): StructuredData | null {
+  if (!raw) return null;
+  try {
+    const cleaned = raw.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      const parsed = JSON.parse(cleaned.slice(start, end + 1));
+      if (parsed && (parsed.conclusion || parsed.consensusPoints)) {
+        return {
+          conclusion: parsed.conclusion || '',
+          consensusPoints: Array.isArray(parsed.consensusPoints) ? parsed.consensusPoints : [],
+          disagreementPoints: Array.isArray(parsed.disagreementPoints) ? parsed.disagreementPoints : [],
+          goalAchieved: parsed.goalAchieved || '',
+          recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+        };
+      }
+    }
+  } catch { /* fallthrough */ }
+  return null;
+}
+
 export default function Result() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -43,7 +73,11 @@ export default function Result() {
 
   const rt = roundTable!;
   const finalSummary = messages.find((m) => m.type === 'final_summary');
-  const regularMessages = messages.filter((m) => m.type !== 'final_summary');
+  const structuredMsg = messages.find((m) => m.type === 'result');
+  const regularMessages = messages.filter((m) => m.type !== 'final_summary' && m.type !== 'result');
+
+  // Parse structured result from JSON
+  const structured = structuredMsg ? parseStructuredResult(structuredMsg.content) : null;
 
   const groupedByRound = new Map<number, Message[]>();
   regularMessages.forEach((msg) => {
@@ -255,6 +289,76 @@ export default function Result() {
               </div>
             ))}
         </div>
+
+        {/* Structured Result */}
+        {structured && (
+          <div className="mt-10 bg-white rounded-r-xl border-g200 p-s6">
+            <h3 className="text-base font-semibold text-g900 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-p600" />
+              结构化结论
+            </h3>
+
+            {structured.conclusion && (
+              <div className="mb-4">
+                <p className="text-xs text-g400 mb-1 font-medium">核心结论</p>
+                <p className="text-sm text-g800 leading-relaxed bg-g50 rounded-r-lg p-4">{structured.conclusion}</p>
+              </div>
+            )}
+
+            {structured.consensusPoints && structured.consensusPoints.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-g400 mb-1 font-medium">共识点</p>
+                <ul className="space-y-1">
+                  {structured.consensusPoints.map((pt, i) => (
+                    <li key={i} className="text-sm text-g700 flex items-start gap-2">
+                      <span className="text-success mt-1">✓</span> {pt}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {structured.disagreementPoints && structured.disagreementPoints.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-g400 mb-1 font-medium">分歧点</p>
+                <ul className="space-y-1">
+                  {structured.disagreementPoints.map((pt, i) => (
+                    <li key={i} className="text-sm text-g700 flex items-start gap-2">
+                      <span className="text-error mt-1">✗</span> {pt}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {structured.goalAchieved && (
+              <div className="mb-4">
+                <p className="text-xs text-g400 mb-1 font-medium">目标达成</p>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                  structured.goalAchieved === 'yes' ? 'bg-success/10 text-success' :
+                  structured.goalAchieved === 'partial' ? 'bg-warning/10 text-warning' :
+                  'bg-error/10 text-error'
+                }`}>
+                  {structured.goalAchieved === 'yes' ? '✅ 是' :
+                   structured.goalAchieved === 'partial' ? '🔶 部分' : '❌ 否'}
+                </span>
+              </div>
+            )}
+
+            {structured.recommendations && structured.recommendations.length > 0 && (
+              <div>
+                <p className="text-xs text-g400 mb-1 font-medium">后续建议</p>
+                <ul className="space-y-1">
+                  {structured.recommendations.map((r, i) => (
+                    <li key={i} className="text-sm text-g700 flex items-start gap-2">
+                      <span className="text-p500 mt-0.5">→</span> {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Final Summary */}
         {finalSummary && (
