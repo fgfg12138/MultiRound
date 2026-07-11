@@ -8,7 +8,7 @@ import { generateId, CURRENT_SCHEMA_VERSION } from '@/lib/types';
 import { saveRoundTable } from '@/lib/storage';
 import { listProviders } from '@/lib/settings-store';
 import { createDefaultSecret, createDefaultMemory, withDefaults, parseLines, toLines } from '@/lib/create-helpers';
-import { quickMeetingTemplate, marketEntryTemplate, techDebateTemplate } from '@/lib/templates';
+import { parseScript } from '@/lib/script-parser';
 import { useToast } from '@/components/Toast';
 import Layout from '@/components/Layout';
 import { Plus, Play, Settings, AlertCircle, Trash2, ChevronDown, ChevronRight } from 'lucide-react';
@@ -101,30 +101,6 @@ export default function Create() {
   }
   function removeTeam(idx: number) { setTeams(teams.filter((_, i) => i !== idx)); }
 
-  function applyTemplate(tpl: any) {
-    setScenarioTitle(tpl.topic || '');
-    setScenarioDesc(tpl.scenario?.description || '');
-    setAtmosphere(tpl.scenario?.atmosphere || 'formal');
-    setHostName(tpl.host?.name || '主持人');
-    setHostStyle(tpl.host?.style || '中立、控场');
-    setHostMode(tpl.host?.mode || 'visible');
-    setHostProviderId('');
-    setHostModel('');
-    setCharacters((tpl.characters || []).map((c: any) => withDefaults({
-      ...c, providerId: '', model: '', stance: c.stance || '', style: c.style || '',
-    })));
-    setTeams(tpl.teams || []);
-    setUnlimitedRounds(tpl.totalRounds === 0);
-    setRoundCount(tpl.totalRounds || 3);
-    setSpeakOrder(tpl.rules?.speakOrder || 'sequential');
-    setMaxSpeechLength(tpl.rules?.maxSpeechLength || 300);
-    setScoringEnabled(tpl.rules?.scoringEnabled || false);
-    setForbiddenTopics((tpl.rules?.forbiddenTopics || []).join(', '));
-    setGoalType(tpl.goal?.type || 'custom');
-    setGoalDesc(tpl.goal?.description || '');
-    setGoalCriteria(tpl.goal?.successCriteria || '');
-    setError('');
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -184,9 +160,6 @@ export default function Create() {
           <p className="text-sm text-g500 mb-6">在开始创建圆桌之前，请先前往设置页添加至少一个 LLM 厂商。</p>
         <div className="flex flex-wrap gap-2 mb-6">
           <span className="text-xs text-g400 mr-1 self-center">u5febu901fu6a21u677f:</span>
-          <button type="button" onClick={() => applyTemplate(quickMeetingTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">AI u8d8bu52bfu5206u6790</button>
-          <button type="button" onClick={() => applyTemplate(marketEntryTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6d77u5916u5e02u573a</button>
-          <button type="button" onClick={() => applyTemplate(techDebateTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6280u672fu8fa9u8bba</button>
         </div>
           <button onClick={() => navigate('/settings')} className="inline-flex items-center gap-2 px-6 py-3 bg-p600 text-white rounded-r-lg font-medium hover:bg-p700 transition-colors shadow-md shadow-p200">
             <Settings className="w-5 h-5" />前往设置
@@ -206,9 +179,6 @@ export default function Create() {
         <p className="text-sm text-g500 mb-6">设置讨论主题、主持人和参与角色</p>
         <div className="flex flex-wrap gap-2 mb-6">
           <span className="text-xs text-g400 mr-1 self-center">u5febu901fu6a21u677f:</span>
-          <button type="button" onClick={() => applyTemplate(quickMeetingTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">AI u8d8bu52bfu5206u6790</button>
-          <button type="button" onClick={() => applyTemplate(marketEntryTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6d77u5916u5e02u573a</button>
-          <button type="button" onClick={() => applyTemplate(techDebateTemplate())} className="px-3 py-1.5 text-xs bg-p50 text-p700 border border-p200 rounded-r-lg hover:bg-p100 transition-colors">u6280u672fu8fa9u8bba</button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-6 pb-24">
 
@@ -228,8 +198,22 @@ export default function Create() {
                     const result = await window.electronAPI?.openMarkdownFile?.();
                     if (!result) return;
                     if (!result.ok) { showToast({ type: 'error', message: result.error }); return; }
-                    setScenarioDesc(result.content);
-                    showToast({ type: 'success', message: `已导入 ${result.filename}` });
+                    const draft = parseScript(result.content);
+                    if (!draft) { showToast({ type: 'warning', message: '.md 文件开头缺少 YAML 配置（--- 包裹的段落）' }); return; }
+                    if (draft.topic) setScenarioTitle(draft.topic);
+                    if (draft.atmosphere) setAtmosphere(draft.atmosphere);
+                    if (draft.totalRounds != null) { setUnlimitedRounds(draft.totalRounds === 0); setRoundCount(draft.totalRounds); }
+                    if (draft.maxSpeechLength) setMaxSpeechLength(draft.maxSpeechLength);
+                    if (draft.speakOrder) setSpeakOrder(draft.speakOrder as any);
+                    if (draft.scoringEnabled != null) setScoringEnabled(draft.scoringEnabled);
+                    if (draft.forbiddenTopics) setForbiddenTopics(draft.forbiddenTopics.join(String.fromCharCode(10)));
+                    if (draft.goal) { if (draft.goal.type) setGoalType(draft.goal.type as any); if (draft.goal.description) setGoalDesc(draft.goal.description); if (draft.goal.successCriteria) setGoalCriteria(draft.goal.successCriteria); }
+                    if (draft.host) { if (draft.host.name) setHostName(draft.host.name); if (draft.host.style) setHostStyle(draft.host.style); if (draft.host.mode) setHostMode(draft.host.mode as any); }
+                    if (draft.characters && draft.characters.length > 0) {
+                      setCharacters(draft.characters.map(function(cx) { return withDefaults({ id: generateId(), name: cx.name || '', role: cx.role || '', persona: cx.persona || '', stance: cx.stance || '', style: cx.style || '', motivation: cx.motivation, expertise: cx.expertise, relationship: cx.relationship, constraints: cx.constraints, teamId: cx.teamId, providerId: '' }); }));
+                    }
+                    if (draft.teams) setTeams(draft.teams.map(function(tx, ix) { return { id: generateId(), name: tx.name || '阵营' + (ix + 1), color: tx.color || TEAM_COLORS[ix % TEAM_COLORS.length] }; }));
+                    showToast({ type: 'success', message: '已从 ' + result.filename + ' 导入剧本配置' });
                   } catch (err: any) { showToast({ type: 'error', message: err?.message || '导入失败' }); }
                 }}
                 className="text-xs text-p600 hover:text-p800 underline mt-1">从 Markdown 导入</button>
