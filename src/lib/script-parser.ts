@@ -21,6 +21,9 @@ export interface ScriptDraft {
     secret?: { secretRole?: string; publicGoal?: string; privateGoal?: string };
     memory?: { privateMemory?: string[]; publicMemory?: string[]; strategyPlan?: string };
   }[];
+  gameMode?: string;
+  modules?: Record<string, boolean>;
+  witchPotions?: { heal?: boolean; poison?: boolean };
   teams?: { name?: string; color?: string }[];
 }
 
@@ -102,6 +105,19 @@ function parseYamlBlock(yaml: string): ScriptDraft {
       continue;
     }
 
+    // Modules sub-keys
+    if (currentSection === 'modules') {
+      if (!draft.modules) draft.modules = {};
+      draft.modules[key] = val === 'true';
+      continue;
+    }
+    // WitchPotions sub-keys
+    if (currentSection === 'witchPotions') {
+      if (!draft.witchPotions) draft.witchPotions = {};
+      if (key === 'heal' || key === 'poison') draft.witchPotions[key] = val === 'true';
+      continue;
+    }
+
     // Top-level keys
     if (key === 'topic') draft.topic = val;
     else if (key === 'totalRounds') draft.totalRounds = parseInt(val) || 0;
@@ -109,6 +125,7 @@ function parseYamlBlock(yaml: string): ScriptDraft {
     else if (key === 'maxSpeechLength') draft.maxSpeechLength = parseInt(val) || 300;
     else if (key === 'speakOrder') draft.speakOrder = val;
     else if (key === 'scoringEnabled') draft.scoringEnabled = val === 'true';
+    else if (key === 'gameMode') draft.gameMode = val;
     else if (key === 'forbiddenTopics') draft.forbiddenTopics = val.split('\n').filter(Boolean);
   }
 

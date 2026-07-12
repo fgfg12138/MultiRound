@@ -4,6 +4,16 @@ atmosphere: tense
 totalRounds: 0
 maxSpeechLength: 250
 speakOrder: sequential
+gameMode: werewolf
+modules:
+  nightAction: true
+  vote: true
+  deathSilence: true
+  winCheck: true
+  phaseIndicator: true
+witchPotions:
+  heal: true
+  poison: true
 goal:
   type: custom
   description: 好人阵营找出并投出所有狼人；狼人阵营杀死足够平民以求存活到人数均势
@@ -19,51 +29,99 @@ characters:
     stance: 不轻易站队，相信票型与发言漏洞
     style: 谨慎、观察为主
     teamId: 好人阵营
+    secret:
+      secretRole: villager
+      publicGoal: 找出并投出所有狼人
+      privateGoal: 靠逻辑与票型判断狼人，不轻易站队
+      isAlive: true
+      revealed: false
   - name: 玩家2
     role: 预言家
     persona: 每晚可查验一名玩家身份，是好人最关键的神职，需谨慎上跳与发查验
     stance: 用查验信息建立逻辑链，引导好人信任
-    style: 冷静、证据导向、敢于上跳
+    style: 冷静、证据导向
     teamId: 好人阵营
+    secret:
+      secretRole: seer
+      publicGoal: 协助好人识别狼人
+      privateGoal: 适度上跳发查验，用证据链建立信任
+      isAlive: true
+      revealed: false
   - name: 玩家3
     role: 女巫
-    persona: 持有一瓶解药与一瓶毒药，可在夜里救人或毒人，决策影响巨大
-    stance: 解药留到最关键之夜，毒药用于戳穿悍跳
+    persona: 有一瓶解药与一瓶毒药，可夜里救人或毒人
+    stance: 解药留到关键之夜，毒药戳穿悍跳
     style: 隐忍、关键时刻出手
     teamId: 好人阵营
+    secret:
+      secretRole: witch
+      publicGoal: 关键时刻救好人或毒走悍跳狼
+      privateGoal: 解药留到最关键之夜，毒药戳穿悍跳
+      isAlive: true
+      revealed: false
   - name: 玩家4
     role: 猎人
-    persona: 被投票或夜里死亡时可开枪带走一名玩家，威慑悍跳者
-    stance: 不轻易暴露，死亡时果断开枪带走最可疑的人
+    persona: 被投票或夜里死亡时可开枪带走一名玩家
+    stance: 不轻易暴露，死亡时果断开枪
     style: 沉默、威慑
     teamId: 好人阵营
+    secret:
+      secretRole: hunter
+      publicGoal: 死亡时开枪带走最可疑者
+      privateGoal: 不轻易暴露身份，死亡时果断开枪
+      isAlive: true
+      revealed: false
   - name: 玩家5
     role: 守卫
-    persona: 每晚可守护一名玩家（不可连守），与女巫配合形成好人保护链
-    stance: 优先守护发言真实、疑似神职的玩家
+    persona: 每晚守护一人（不可连守），与女巫配合
+    stance: 优先守护疑似神职的玩家
     style: 低调、配合
     teamId: 好人阵营
+    secret:
+      secretRole: guard
+      publicGoal: 夜里守护关键玩家
+      privateGoal: 不可连守同一人，优先守护疑似神职者
+      isAlive: true
+      revealed: false
   - name: 玩家6
     role: 狼人
-    persona: 每晚与同伴选择刀杀目标，白天伪装好人、悍跳神职或煽动抗推好人
-    stance: 组织狼队节奏，瞄准神职，制造混乱与误判
-    style: 攻击性、善于伪装与带节奏
+    persona: 每晚与同伴选择刀杀目标，白天伪装好人
+    stance: 组织狼队节奏，瞄准神职
+    style: 攻击性、善于伪装
     teamId: 狼人阵营
-    memory.strategyPlan: 首夜刀预言家，白天悍跳预言家发假查验
+    secret:
+      secretRole: werewolf
+      publicGoal: 伪装好人，白天带节奏抗推
+      privateGoal: 首夜刀预言家，白天悍跳预言家
+      knownSecrets: 知道同伴：玩家7、玩家8
+      isAlive: true
+      revealed: false
   - name: 玩家7
     role: 狼人
-    persona: 6号玩家的同伴，负责打配合、做身份、控票型
+    persona: 6号同伴，负责打配合做身份
     stance: 跟随头狼节奏，必要时冲锋抗推
     style: 隐蔽、服从
     teamId: 狼人阵营
-    memory.strategyPlan: 白天做平民身份，倒钩真预言家制造混乱
+    secret:
+      secretRole: werewolf
+      publicGoal: 伪装平民做身份
+      privateGoal: 白天做平民身份，倒钩真假言家
+      knownSecrets: 知道同伴：玩家6、玩家8
+      isAlive: true
+      revealed: false
   - name: 玩家8
     role: 狼人
-    persona: 6号玩家的同伴，擅长煽动与泼脏水，承担冲锋位
-    stance: 白天带节奏抗推神职，必要时献祭保狼
+    persona: 6号同伴，擅长煽动与泼脏水
+    stance: 白天带节奏抗推，必要时献祭
     style: 张扬、煽动
     teamId: 狼人阵营
-    memory.strategyPlan: 首轮悍跳预言家对跳真预言家
+    secret:
+      secretRole: werewolf
+      publicGoal: 悍跳神职对冲
+      privateGoal: 首轮悍跳预言家对跳
+      knownSecrets: 知道同伴：玩家6、玩家7
+      isAlive: true
+      revealed: false
 teams:
   - name: 好人阵营
     color: "#3B82F6"
@@ -77,28 +135,8 @@ teams:
 
 # 主持人职责
 
-主持人以"夜→昼"流程推进：夜里狼人讨论刀杀目标、神职行动；天亮后公布死亡，依次发言，结束投票出局。主持人可在发言后追问、要求某个玩家解释站边。
+主持人以"夜→昼→投票"流程推进。夜里通过 Whisper 收集各角色 JSON 行动。白天存活者依次发言。结束时组织投票出局。主持人绝不直接公布未揭示的身份。
 
 # 流程
 
-## 第一轮：首夜+首日
-主持人宣布天黑。狼人共同决定刀杀目标；预言家查验一人；女巫决定是否用药；守卫守护一人。天亮：主持人宣布昨夜结果，存活者依次发言，结束后投票出局一人。
-
-## 第二到第五轮：循环昼夜
-每轮主持人推进：夜行动 → 公布 → 发言 → 投票。主持人可在发言后追问、要求某个玩家解释站边。
-
-## 第六轮：终局
-若仍有狼人存活，主持人宣布游戏继续或结束；公布胜负与身份。
-
-# 胜利条件
-
-- 好人胜利：所有狼人被投票出局
-- 狼人胜利：存活狼人数 ≥ 好人数
-
-# 玩家可介入
-
-暂停讨论；要求主持人公布"昨夜刀杀目标"；指定某位玩家回答问题；要求重投。
-
-# 结束输出
-
-主持人宣布最终结果：每位角色真实身份、胜负、狼人最成功误导、好人最佳推理。
+首夜行动 → 天亮公布 → 白天发言 → 投票放逐 → 后继循环。狼人全部出局则好人胜，存活狼人数≥好人数则狼人胜。
