@@ -91,7 +91,7 @@ async function runRevealPhase(rt: RoundTable, round: number, all: Message[], sig
   const actions = rt.nightActions; if (!actions || actions.deaths.length === 0) return;
   const sys = buildSysPrompt(); const budget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
   const deathNames = actions.deaths.map((d: any) => rt.characters.find((c: any) => c.id === d.characterId)?.name || d.characterId).join('、');
-  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 被杀害了。\n（死者：' + actions.deaths.map((d: any) => rt.characters.find((c: any) => c.id === d.characterId)?.name).join('、') + '）\n请用庄重的语气宣布结果，不要透露死者的身份。然后请存活角色开始发言。';
+  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 被杀害了。\n【公布要求】只宣布死亡名单，不透露刀杀/毒杀细节，不透露存活者身份，不分析谁可能是狼，不下裁判结论。请庄重宣布，然后说：请存活角色开始发言。';
   send('discuss:phase-change', { roundTableId: rt.id, phase: 'reveal', label: '天亮公布' });
   const r = await callLlm(sys, prompt, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
   if (r.content) { const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content); all.push(m); send('discuss:message', m); }
@@ -115,7 +115,7 @@ async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: 
   let maxV = 0; let ousted = ''; let tied = false;
   for (const [id, cnt] of Object.entries(tally)) { if (cnt > maxV) { maxV = cnt; ousted = id; tied = false; } else if (cnt === maxV) tied = true; }
   if (tied && rt.host) {
-    const p2 = '投票平局。请裁定放逐谁？目标：' + Object.keys(tally).join('、') + '\n输出 JSON：{"vote": "角色ID"}';
+    const p2 = '投票平局。\n【主持人约束】你无权下身份结论，只能执行重投或随机决定。\n目标：' + Object.keys(tally).join('、') + '\n输出 JSON：{"vote": "角色ID"}';
     const hr = await callLlm(sys, p2, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
     if (hr.content) try { const j = JSON.parse(hr.content); if (j.vote) { ousted = j.vote; tied = false; } } catch {}
   }
