@@ -27,6 +27,9 @@ export function defaultSecret(): CharacterSecret {
     knownSecrets: [],
     isAlive: true,
     revealed: false,
+    diedAtRound: undefined,
+    diedReason: undefined,
+    nightActionDone: false,
   };
 }
 
@@ -48,7 +51,9 @@ export function normalizeCharacter(c: Character): Character {
 }
 
 export function normalizeRoundTable(rt: RoundTable): void {
-  rt.host = { ...rt.host, secretAccess: rt.host?.secretAccess || 'judge' };
+  rt.host = { ...rt.host, secretAccess: rt.host.secretAccess || 'judge' };
+  rt.modules = rt.modules || { nightAction: false, vote: false, deathSilence: false, winCheck: false, phaseIndicator: false };
+  rt.witchPotions = rt.witchPotions || { heal: true, poison: true };
   rt.characters = (rt.characters || []).map(normalizeCharacter);
 }
 
