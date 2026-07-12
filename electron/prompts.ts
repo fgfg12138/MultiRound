@@ -327,10 +327,13 @@ export function buildHostOpen(rt: RoundTable): string {
   const ru = buildRulesContext(rt);
   const gl = buildGoalContext(rt);
   const publicGame = buildPublicGameContext(rt);
-  const judge = buildJudgePrivateContext(rt);
+  const isWw = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
+  const judge = isWw ? buildWerewolfJudgeContext(rt) : buildJudgePrivateContext(rt);
   const cl = rt.characters.map((c, i) => `${i + 1}. ${buildCharPersona(c)}`).join('\n\n');
-  return `你是主持人「${rt.host.name}」，风格：${safe(rt.host.style, '中立控场')}。\n${mh ? mh + '\n' : ''}\n${sc}\n${ru}\n${gl}\n\n${publicGame}\n\n参与角色：\n${cl}\n\n${judge ? judge + '\n\n' : ''}请致开场白：介绍场景、说明规则、陈述目标，然后请第一位角色开始发言。
-注意：作为主持人，你绝对不得在发言中透露任何角色的隐藏身份、私密目标、已知秘密或阵营归属。`;
+  if (isWw) {
+    return `你是主持人「${rt.host.name}」即上帝，风格：${safe(rt.host.style, '中立控场')}。\n${mh ? mh + '\n' : ''}\n${sc}\n${ru}\n${gl}\n\n${publicGame}\n\n参与角色：\n${cl}\n\n${judge}\n\n请致开场白：介绍场景、说明夜昼流程（夜晚行动→天亮公布死亡→白天发言→投票放逐→循环至胜负）、陈述目标，然后说"天黑请闭眼"开始第一夜。\n【严格要求】你是上帝，只主持流程，绝不公布任何角色的隐藏身份、私密目标、阵营归属、持药状态。开场白不分析谁是狼、不下任何身份结论。`;
+  }
+  return `你是主持人「${rt.host.name}」，风格：${safe(rt.host.style, '中立控场')}。\n${mh ? mh + '\n' : ''}\n${sc}\n${ru}\n${gl}\n\n${publicGame}\n\n参与角色：\n${cl}\n\n${judge ? judge + '\n\n' : ''}请致开场白：介绍场景、说明规则、陈述目标，然后请第一位角色开始发言。\n注意：作为主持人，你绝对不得在发言中透露任何角色的隐藏身份、私密目标、已知秘密或阵营归属。`;
 }
 
 /** @deprecated 使用 buildCombinedPrompt 替代（一次调用同时生成 speech + memoryUpdate） */
