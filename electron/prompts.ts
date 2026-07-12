@@ -428,24 +428,24 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
   const rm = msgs.filter(m => m.round === round).map(m => `【${m.characterName}】\n${m.content}`).join('\n\n');
   const gl = buildGoalContext(rt);
   const cn = rt.characters.map(c => c.name).join('、');
-  const judge = buildJudgePrivateContext(rt);
+  const isWw = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
+  const judge = isWw ? buildWerewolfJudgeContext(rt) : buildJudgePrivateContext(rt);
 
-  // 检查 roundMsgs 是否超预算
   const sections = { roundMsgs: rm, goal: gl, judgeContext: judge || '' };
   const report = tbm.checkBudgetSections(sections);
   let finalRm = rm;
   if (!report.isWithinBudget) {
     tbm.autoDegrade(sections);
-    // 如果 recentMsgMaxCount 降低了,截断 roundMsgs
     const config = tbm.getConfig();
     const roundMsgsList = msgs.filter(m => m.round === round);
     finalRm = roundMsgsList.slice(-config.recentMsgMaxCount).map(m => `【${m.characterName}】\n${m.content}`).join('\n\n');
   }
 
+  if (isWw) {
+    return `你是主持人「${rt.host.name}」。第 ${round} 轮白天发言结束。\n\n${gl}\n\n${judge}\n\n本轮发言：\n${finalRm}\n\n总结要求（严格）:\n1. 只陈述本轮公开发言的事实：谁沉默、谁对跳预言家、谁站边、谁被怀疑\n2. 只报双预/单预/沉默/站边分布等中立事实，禁止下任何身份结论\n3. 禁止剧透未翻牌身份、持药状态、守卫守谁、预言家验了谁、狼队关系\n4. 禁止马后炮分析全局、禁止为剧情编造因果\n5. 禁止替玩家下X号就是狼的裁判结论；可列存在两种可能：方案A/方案B\n6. 若启用投票，引出投票环节\n7. 150-250字，纯事实播报，禁止裁判式断言`;
+  }
   return `你是主持人「${rt.host.name}」。\n第 ${round} 轮讨论结束。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}本轮发言：\n${finalRm}\n\n请：\n1. 总结每位角色的核心观点\n2. 指出共识和分歧\n3. 根据发言判断谁更可疑，但绝对不要直接泄露任何角色的隐藏身份、私密目标、已知秘密或阵营归属\n4. 推动角色继续暴露矛盾\n5. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n6. 引出下一轮方向（角色：${cn}）\n\n控制在 200-350 字。保持中立控场，但要有裁判意识。`;
-}
-
-export function buildHostFinal(rt: RoundTable, all: Message[]): string {
+}export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   const tbm = TokenBudgetManager.create(PromptType.HOST_FINAL);
   const rec = all.map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
   const cs = rt.characters.map(c => `${c.name}（${c.role}）—— ${safe(c.stance, '未指定立场')}`).join('\n');
