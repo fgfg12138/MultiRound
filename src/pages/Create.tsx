@@ -56,6 +56,14 @@ export default function Create() {
   const [goalDesc, setGoalDesc] = useState('');
   const [goalCriteria, setGoalCriteria] = useState('');
 
+  // Game modules
+  const [gameMode, setGameMode] = useState<'discussion' | 'werewolf'>('discussion');
+  const [modNightAction, setModNightAction] = useState(false);
+  const [modVote, setModVote] = useState(false);
+  const [modDeathSilence, setModDeathSilence] = useState(false);
+  const [modWinCheck, setModWinCheck] = useState(false);
+  const [modPhaseIndicator, setModPhaseIndicator] = useState(false);
+
   useEffect(() => {
     listProviders().then((p) => {
       setProviders(p);
@@ -140,6 +148,8 @@ export default function Create() {
           forbiddenTopics: forbiddenTopics.trim() ? forbiddenTopics.split('\n').filter(Boolean) : undefined,
         },
         goal: { type: goalType, description: goalDesc.trim() || scenarioTitle.trim(), successCriteria: goalCriteria.trim() || undefined },
+        modules: { nightAction: modNightAction, vote: modVote, deathSilence: modDeathSilence, winCheck: modWinCheck, phaseIndicator: modPhaseIndicator },
+        gameMode: gameMode,
         status: 'created', createdAt: Date.now(),
       };
       await saveRoundTable(rt);
@@ -362,6 +372,12 @@ export default function Create() {
                                     <label className="text-g500">秘密身份</label>
                                     <select value={secret.secretRole} onChange={e => updateSecret(i, 'secretRole', e.target.value as SecretRole)} className="w-full mt-1 px-2 py-1 border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
                                       <option value="normal">normal 普通角色</option>
+                                      <option value="werewolf">werewolf 狼人</option>
+                                      <option value="seer">seer 预言家</option>
+                                      <option value="witch">witch 女巫</option>
+                                      <option value="guard">guard 守卫</option>
+                                      <option value="hunter">hunter 猎人</option>
+                                      <option value="villager">villager 村民</option>
                                       <option value="fraudster">fraudster 欺诈者</option>
                                       <option value="detective">detective 侦探</option>
                                       <option value="observer">observer 观察者</option>
