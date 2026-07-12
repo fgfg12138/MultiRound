@@ -53,6 +53,9 @@ export function normalizeCharacter(c: Character): Character {
 export function normalizeRoundTable(rt: RoundTable): void {
   rt.host = { ...rt.host, secretAccess: rt.host.secretAccess || 'judge' };
   rt.modules = rt.modules || { nightAction: false, vote: false, deathSilence: false, winCheck: false, phaseIndicator: false };
+  if (rt.gameMode === 'werewolf' && rt.modules && !rt.modules.nightAction && !rt.modules.vote) {
+    rt.modules = { nightAction: true, vote: true, deathSilence: true, winCheck: true, phaseIndicator: true };
+  }
   rt.witchPotions = rt.witchPotions || { heal: true, poison: true };
   rt.characters = (rt.characters || []).map(normalizeCharacter);
 }
@@ -218,6 +221,20 @@ export function buildJudgePrivateContext(rt: RoundTable): string {
   return `【裁判私密信息，仅主持人可见】\n你知道所有角色的隐藏身份、私密目标、已知秘密和当前记忆。\n你需要在每轮总结时：\n1. 根据发言判断谁更可疑\n2. 推动角色继续暴露矛盾\n3. 不直接公布未揭示的秘密身份和私密目标\n4. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n5. 你的公开发言只能追问、总结、暗示和推动流程，不能直接泄露裁判私密信息\n\n${rows}`;
 }
 
+export function buildWerewolfJudgeContext(rt: RoundTable): string {
+  const alive = rt.characters.filter(c => c.secret?.isAlive !== false);
+  const dead = rt.characters.filter(c => c.secret?.isAlive === false);
+  const pub = '存活：' + alive.map(c=>c.name).join('、') + String.fromCharCode(10) + '已死亡翻牌：' + dead.filter(c=>c.secret?.revealed).map(c=>c.name + '(' + c.secret?.secretRole + ')').join('、') + String.fromCharCode(10) + '历史出局：' + (rt.deathLog||[]).map((d:any)=>'第'+d.round+'轮 '+rt.characters.find((cx:any)=>cx.id===d.characterId)?.name+' 出局('+(d.reason||'未知')+')').join(String.fromCharCode(10)) || '无';
+  const na = rt.nightActions;
+  var scName = '无'; var scResult = '';
+  if (na && na.seerCheck && na.seerCheck.target) {
+    var scChar = rt.characters.find((cx:any)=>cx.id===na.seerCheck!.target);
+    scName = scChar?.name || '未知';
+    scResult = '(' + na.seerCheck!.result + ')';
+  }
+  const naStr = na ? '本轮被刀目标：' + (na.wolfTarget?rt.characters.find((cx:any)=>cx.id===na.wolfTarget)?.name:'无') + '；女巫' + (na.witchHeal?'已救':'未救') + (na.witchPoison?',毒了'+(rt.characters.find((cx:any)=>cx.id===na.witchPoison)?.name||''):'') + '；守卫守' + (na.guardTarget?rt.characters.find((cx:any)=>cx.id===na.guardTarget)?.name:'无') + '；预言家验' + scName + scResult : '尚无夜间行动';
+  return '【主持人职责】你是上帝，只负责流程推进。' + String.fromCharCode(10) + '你能知道的公开信息：' + String.fromCharCode(10) + pub + String.fromCharCode(10) + '夜间行动汇总（仅你知道，不可对外说）：' + naStr + String.fromCharCode(10) + String.fromCharCode(10) + '你绝对不可对外泄露：' + String.fromCharCode(10) + '1. 任何存活角色的隐藏身份、私密目标、已知秘密、阵营归属' + String.fromCharCode(10) + '2. 女巫是否持药、守卫守谁、预言家验了谁、被刀/被救过程' + String.fromCharCode(10) + '3. 对谁是狼、谁是神下裁判结论' + String.fromCharCode(10) + '你的公开发言只能：报死亡名单、推进流程、组织投票、宣布出局与翻牌。';
+}
 export function buildCharPersona(c: Character): string {
   const p: string[] = [];
   if (c.name) p.push(c.name);
@@ -435,8 +452,10 @@ export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   const gl = buildGoalContext(rt);
   const sc = buildScenarioContext(rt);
   const judge = buildJudgePrivateContext(rt);
+  const isWw3 = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
+  const judge2 = isWw3 ? buildWerewolfJudgeContext(rt) : judge;
 
-  const sections = { records: rec, chars: cs, goal: gl, scenario: sc, judgeContext: judge || '' };
+  const sections = { records: rec, chars: cs, goal: gl, scenario: sc, judgeContext: judge2 || '' };
   const report = tbm.checkBudgetSections(sections);
   let finalRec = rec;
   if (!report.isWithinBudget) {
@@ -445,7 +464,7 @@ export function buildHostFinal(rt: RoundTable, all: Message[]): string {
     finalRec = all.slice(-config.recentMsgMaxCount).map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
   }
 
-  return `你是主持人「${rt.host.name}」。\n整场讨论结束。\n\n${sc}\n${gl}\n\n角色：\n${cs}\n\n${judge ? judge + '\n\n' : ''}完整记录：\n${finalRec}\n\n请撰写总结陈词：\n1. 主题回顾\n2. 每位角色主要观点\n3. 可疑点与矛盾链条\n4. 如果存在欺诈者/隐藏阵营，给出裁判式判断，但不要编造代码里不存在的硬结算\n5. 达成的共识\n6. 仍存分歧\n7. 后续方向\n\n控制在 400-700 字。`;
+  return `你是主持人「${rt.host.name}」。\n整场讨论结束。\n\n${sc}\n${gl}\n\n角色：\n${cs}\n\n${judge2 ? judge2 + '\n\n' : ''}完整记录：\n${finalRec}\n\n请撰写总结陈词：\n1. 主题回顾\n2. 每位角色主要观点\n3. 可疑点与矛盾链条\n4. 如果存在欺诈者/隐藏阵营，给出裁判式判断，但不要编造代码里不存在的硬结算\n5. 达成的共识\n6. 仍存分歧\n7. 后续方向\n\n控制在 400-700 字。`;
 }
 
 export function buildResultPrompt(rt: RoundTable, all: Message[]): string {
@@ -453,8 +472,10 @@ export function buildResultPrompt(rt: RoundTable, all: Message[]): string {
   const rec = all.map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
   const gl = buildGoalContext(rt);
   const judge = buildJudgePrivateContext(rt);
+  const isWw4 = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
+  const judge2 = isWw4 ? buildWerewolfJudgeContext(rt) : judge;
 
-  const sections = { records: rec, goal: gl, judgeContext: judge || '' };
+  const sections = { records: rec, goal: gl, judgeContext: judge2 || '' };
   const report = tbm.checkBudgetSections(sections);
   let finalRec = rec;
   if (!report.isWithinBudget) {
@@ -462,7 +483,7 @@ export function buildResultPrompt(rt: RoundTable, all: Message[]): string {
     finalRec = all.slice(-tbm.getConfig().recentMsgMaxCount).map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
   }
 
-  return `基于以下完整讨论记录，请生成结构化结果。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}讨论记录：\n${finalRec}\n\n请以 JSON 格式输出（不要 markdown 代码块包裹）：\n\n{\n  "conclusion": "最终结论（一段话）",\n  "consensusPoints": ["共识1", "共识2"],\n  "disagreementPoints": ["分歧1", "分歧2"],\n  "goalAchieved": "yes|partial|no",\n  "recommendations": ["建议1", "建议2"]\n}`;
+  return `基于以下完整讨论记录，请生成结构化结果。\n\n${gl}\n\n${judge2 ? judge2 + '\n\n' : ''}讨论记录：\n${finalRec}\n\n请以 JSON 格式输出（不要 markdown 代码块包裹）：\n\n{\n  "conclusion": "最终结论（一段话）",\n  "consensusPoints": ["共识1", "共识2"],\n  "disagreementPoints": ["分歧1", "分歧2"],\n  "goalAchieved": "yes|partial|no",\n  "recommendations": ["建议1", "建议2"]\n}`;
 }
 
 /**
