@@ -31,6 +31,7 @@ export interface StoredProviderConfig {
 
 interface LlmResponse {
   content?: string;
+  reasoning?: string;
   error?: string;
   code?: string;
 }
@@ -155,6 +156,7 @@ export async function callProviderLLMStream(
   provider: ProviderConfig,
   messages: { role: string; content: string }[],
   onChunk: (text: string) => void,
+  onReasoningChunk?: (text: string) => void,
   temperature?: number,
   signal?: AbortSignal,
   remainingBudget?: number
@@ -205,6 +207,7 @@ export async function callProviderLLMStream(
 
     const decoder = new TextDecoder();
     let fullContent = '';
+    let fullReasoning = '';
     let buffer = '';
 
     while (true) {
@@ -225,18 +228,15 @@ export async function callProviderLLMStream(
           const data = JSON.parse(jsonStr);
           const delta = data.choices?.[0]?.delta?.content;
           const reasonDelta = data.choices?.[0]?.delta?.reasoning_content;
-          const textDelta = delta || reasonDelta;
-          if (textDelta) {
-            fullContent += textDelta;
-            onChunk(textDelta);
-          }
+          if (delta) { fullContent += delta; onChunk(delta); }
+          if (reasonDelta) { fullReasoning += reasonDelta; onReasoningChunk?.(reasonDelta); }
         } catch {
           // skip malformed JSON lines
         }
       }
     }
 
-    if (!fullContent) {
+    if (!fullContent && !fullReasoning) {
       try {
         const rm = provider.defaultModel || provider.models?.[0] || provider.model;
         if (rm && rm !== 'default') {
@@ -251,6 +251,7 @@ export async function callProviderLLMStream(
             if (reader) {
               let rBuf = '';
               let rFull = '';
+              let rReason = '';
               const rDec = new TextDecoder();
               while (true) {
                 const { done, value } = await reader.read();
@@ -264,8 +265,10 @@ export async function callProviderLLMStream(
                   const rj = rt.slice(6);
                   try {
                     const rd = JSON.parse(rj);
-                    const td = rd.choices?.[0]?.delta?.content || rd.choices?.[0]?.delta?.reasoning_content;
-                    if (td) { rFull += td; onChunk(td); }
+                    const rc = rd.choices?.[0]?.delta?.content;
+                    const rr = rd.choices?.[0]?.delta?.reasoning_content;
+                    if (rc) { rFull += rc; onChunk(rc); }
+                    if (rr) { rReason += rr; onReasoningChunk?.(rr); }
                   } catch {}
                 }
               }
@@ -275,7 +278,7 @@ export async function callProviderLLMStream(
         }
       } catch {}
     }
-    if (!fullContent) {
+    if (!fullContent && !fullReasoning) {
       return { error: `${provider.name} 返回了空内容`, code: 'EMPTY_RESPONSE' };
     }
     return { content: fullContent };

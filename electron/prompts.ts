@@ -297,7 +297,8 @@ export function buildHostOpen(rt: RoundTable): string {
   const publicGame = buildPublicGameContext(rt);
   const judge = buildJudgePrivateContext(rt);
   const cl = rt.characters.map((c, i) => `${i + 1}. ${buildCharPersona(c)}`).join('\n\n');
-  return `你是主持人「${rt.host.name}」，风格：${safe(rt.host.style, '中立控场')}。\n${mh ? mh + '\n' : ''}\n${sc}\n${ru}\n${gl}\n\n${publicGame}\n\n参与角色：\n${cl}\n\n${judge ? judge + '\n\n' : ''}请致开场白：介绍场景、说明规则、陈述目标，然后请第一位角色开始发言。`;
+  return `你是主持人「${rt.host.name}」，风格：${safe(rt.host.style, '中立控场')}。\n${mh ? mh + '\n' : ''}\n${sc}\n${ru}\n${gl}\n\n${publicGame}\n\n参与角色：\n${cl}\n\n${judge ? judge + '\n\n' : ''}请致开场白：介绍场景、说明规则、陈述目标，然后请第一位角色开始发言。
+注意：作为主持人，你绝对不得在发言中透露任何角色的隐藏身份、私密目标、已知秘密或阵营归属。`;
 }
 
 /** @deprecated 使用 buildCombinedPrompt 替代（一次调用同时生成 speech + memoryUpdate） */
@@ -409,7 +410,7 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
     finalRm = roundMsgsList.slice(-config.recentMsgMaxCount).map(m => `【${m.characterName}】\n${m.content}`).join('\n\n');
   }
 
-  return `你是主持人「${rt.host.name}」。\n第 ${round} 轮讨论结束。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}本轮发言：\n${finalRm}\n\n请：\n1. 总结每位角色的核心观点\n2. 指出共识和分歧\n3. 根据发言判断谁更可疑，但不要直接泄露未公开秘密\n4. 推动角色继续暴露矛盾\n5. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n6. 引出下一轮方向（角色：${cn}）\n\n控制在 200-350 字。保持中立控场，但要有裁判意识。`;
+  return `你是主持人「${rt.host.name}」。\n第 ${round} 轮讨论结束。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}本轮发言：\n${finalRm}\n\n请：\n1. 总结每位角色的核心观点\n2. 指出共识和分歧\n3. 根据发言判断谁更可疑，但绝对不要直接泄露任何角色的隐藏身份、私密目标、已知秘密或阵营归属\n4. 推动角色继续暴露矛盾\n5. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n6. 引出下一轮方向（角色：${cn}）\n\n控制在 200-350 字。保持中立控场，但要有裁判意识。`;
 }
 
 export function buildHostFinal(rt: RoundTable, all: Message[]): string {

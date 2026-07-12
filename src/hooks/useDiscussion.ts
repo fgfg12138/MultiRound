@@ -38,6 +38,7 @@ export function useDiscussion() {
   });
   /** Map characterName → accumulated streaming content */
   const streamingContentRef = useRef<Record<string, string>>({});
+  const streamingReasoningRef = useRef<Record<string, string>>({});
 
   const messagesRef = useRef<Message[]>([]);
   const roundTableRef = useRef<RoundTable | null>(null);
@@ -109,27 +110,29 @@ export function useDiscussion() {
     cleanup.push(window.electronAPI.onDiscussAwaitingHostInput((info) => setAwaitingHostInput(info)));
 
     streamingContentRef.current = {};
+    streamingReasoningRef.current = {};
     let chunkCounter = 0;
     cleanup.push(window.electronAPI.onDiscussStreamChunk((data) => {
-      const { characterName, chunk } = data;
+      const { characterName, chunk, reasoningChunk } = data;
       setStreamingCharacter(characterName);
-      streamingContentRef.current[characterName] = (streamingContentRef.current[characterName] || '') + chunk;
+      if (chunk) streamingContentRef.current[characterName] = (streamingContentRef.current[characterName] || '') + chunk;
+      if (reasoningChunk) streamingReasoningRef.current[characterName] = (streamingReasoningRef.current[characterName] || '') + reasoningChunk;
       chunkCounter++;
       setMessages((prev) => {
         const next = [...prev]; const lastIdx = next.length - 1;
         if (lastIdx >= 0 && next[lastIdx].characterName === characterName) {
-          next[lastIdx] = { ...next[lastIdx], content: streamingContentRef.current[characterName] };
+          next[lastIdx] = { ...next[lastIdx], content: streamingContentRef.current[characterName], reasoning: streamingReasoningRef.current[characterName] || next[lastIdx].reasoning };
         } else if (lastIdx >= 0 && next[lastIdx].characterName !== characterName) {
           const rt = roundTableRef.current;
           if (rt) {
             const char = rt.characters.find((c) => c.name === characterName) || (rt.host?.name === characterName ? { id: 'host', name: characterName } : null);
-            next.push({ id: `streaming-${characterName}-${chunkCounter}`, roundTableId: rt.id, characterId: char?.id || characterName, characterName, type: 'speech', content: streamingContentRef.current[characterName], timestamp: Date.now(), round: next[lastIdx]?.round || 1 });
+            next.push({ id: `streaming-${characterName}-${chunkCounter}`, roundTableId: rt.id, characterId: char?.id || characterName, characterName, type: 'speech', content: streamingContentRef.current[characterName], reasoning: streamingReasoningRef.current[characterName], timestamp: Date.now(), round: next[lastIdx]?.round || 1 });
           }
         } else {
           const rt = roundTableRef.current;
           if (rt) {
             const char = rt.characters.find((c) => c.name === characterName);
-            next.push({ id: `streaming-${characterName}-${chunkCounter}`, roundTableId: rt.id, characterId: char?.id || characterName, characterName, type: 'speech', content: streamingContentRef.current[characterName], timestamp: Date.now(), round: 1 });
+            next.push({ id: `streaming-${characterName}-${chunkCounter}`, roundTableId: rt.id, characterId: char?.id || characterName, characterName, type: 'speech', content: streamingContentRef.current[characterName], reasoning: streamingReasoningRef.current[characterName], timestamp: Date.now(), round: 1 });
           }
         }
         return next;
@@ -137,7 +140,7 @@ export function useDiscussion() {
     }));
 
     cleanup.push(window.electronAPI.onDiscussStreamEnd((data) => {
-      const { characterName } = data; setStreamingCharacter(null); delete streamingContentRef.current[characterName];
+      const { characterName } = data; setStreamingCharacter(null); delete streamingContentRef.current[characterName]; delete streamingReasoningRef.current[characterName];
     }));
 
     if (window.electronAPI.onDiscussTokenUpdate) cleanup.push(window.electronAPI.onDiscussTokenUpdate((data) => {

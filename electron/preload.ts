@@ -155,7 +155,7 @@ try {
     },
 
     // Streaming chunk events (main → renderer)
-    onDiscussStreamChunk: (callback: (data: { roundTableId: string; characterId: string; characterName: string; chunk: string }) => void) => {
+    onDiscussStreamChunk: (callback: (data: { roundTableId: string; characterId: string; characterName: string; chunk?: string; reasoningChunk?: string }) => void) => {
       const handler = (_event: any, data: any) => callback(data);
       ipcRenderer.on('discuss:stream-chunk', handler);
       return () => ipcRenderer.removeListener('discuss:stream-chunk', handler);

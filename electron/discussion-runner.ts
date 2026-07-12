@@ -109,13 +109,16 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
             send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
           }
         };
+        const onReasoningChunk = (reasoningChunk: string) => {
+          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, reasoningChunk });
+        };
         const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
-        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget);
+        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
         const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
         const parsed = parseCharacterOutput(rawContent);
         const speechContent = parsed ? parsed.speech : rawContent;
         send('discuss:stream-end', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, content: speechContent, error: r.error });
-        const m = buildMsg(rt.id, round, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId });
+        const m = buildMsg(rt.id, round, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId, reasoning: r.reasoning });
         all.push(m); send('discuss:message', m);
         if (!r.error && parsed?.payload) mergeMemoryUpdate(ch, parsed.payload);
         if (r.content || streamedContent) {
@@ -247,13 +250,16 @@ export async function appendRound(rt: RoundTable): Promise<void> {
           send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
         }
       };
+      const onReasoningChunk = (reasoningChunk: string) => {
+        send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, reasoningChunk });
+      };
       const combinedPrompt = buildCombinedPrompt(rt, ch, nextRound, all);
-      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget);
+      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
       const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
       const parsed = parseCharacterOutput(rawContent);
       const speechContent = parsed ? parsed.speech : rawContent;
       send('discuss:stream-end', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, content: speechContent, error: r.error });
-      const m = buildMsg(rt.id, nextRound, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId });
+      const m = buildMsg(rt.id, nextRound, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId, reasoning: r.reasoning });
       all.push(m); send('discuss:message', m);
       if (!r.error && parsed?.payload) mergeMemoryUpdate(ch, parsed.payload);
       if (r.content || streamedContent) {

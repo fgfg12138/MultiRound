@@ -22,11 +22,11 @@ export function genId(): string { return crypto.randomUUID(); }
 
 export function buildMsg(
   rtId: string, rnd: number, charId: string | 'host', charName: string,
-  type: MsgType, content: string, opts?: { error?: string; provId?: string }
+  type: MsgType, content: string, opts?: { error?: string; provId?: string; reasoning?: string }
 ): Message {
   return { id: genId(), roundTableId: rtId, round: rnd, characterId: charId,
     characterName: charName, type, content, error: opts?.error,
-    providerId: opts?.provId, timestamp: Date.now() };
+    providerId: opts?.provId, timestamp: Date.now(), reasoning: opts?.reasoning };
 }
 
 export function send(ch: string, ...args: unknown[]): void {
@@ -51,7 +51,7 @@ export function resolveProvider(providerId?: string): ProviderConfig | undefined
   return undefined;
 }
 
-export async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: string, temp?: number, onChunk?: (chunk: string) => void, modelOverride?: string, charId?: string, budget?: number): Promise<{ content?: string; error?: string }> {
+export async function callLlm(sys: string, user: string, sig?: AbortSignal, provId?: string, temp?: number, onChunk?: (chunk: string) => void, modelOverride?: string, charId?: string, budget?: number, onReasoningChunk?: (chunk: string) => void): Promise<{ content?: string; reasoning?: string; error?: string }> {
   if (sig?.aborted) return { error: '生成已中止' };
   try {
     const p = resolveProvider(provId);
@@ -61,7 +61,8 @@ export async function callLlm(sys: string, user: string, sig?: AbortSignal, prov
     if (modelOverride) console.log('[MODEL_TRACE] override', provId, modelOverride);
     send('discuss:model-used', { providerId: provId, model, characterId: charId || '' });
     if (onChunk) {
-      return await callProviderLLMStream(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], onChunk, temp, sig, budget);
+      const r = await callProviderLLMStream(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], onChunk, onReasoningChunk, temp, sig, budget);
+      return { content: r.content, reasoning: r.reasoning, error: r.error };
     }
     const r = await callProviderLLM(effectiveProvider, [{ role: 'system', content: sys }, { role: 'user', content: user }], temp, budget);
     if (sig?.aborted) return { error: '生成已中止' };

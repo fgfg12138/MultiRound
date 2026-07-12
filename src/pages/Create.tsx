@@ -158,12 +158,6 @@ export default function Create() {
           </div>
           <h2 className="text-lg font-semibold text-g900 mb-2">需要先配置 LLM 厂商</h2>
           <p className="text-sm text-g500 mb-6">在开始创建圆桌之前，请先前往设置页添加至少一个 LLM 厂商。</p>
-        <div className="flex flex-wrap gap-2 mb-6">
-          <span className="text-xs text-g400 mr-1 self-center">u5febu901fu6a21u677f:</span>
-        </div>
-          <button onClick={() => navigate('/settings')} className="inline-flex items-center gap-2 px-6 py-3 bg-p600 text-white rounded-r-lg font-medium hover:bg-p700 transition-colors shadow-md shadow-p200">
-            <Settings className="w-5 h-5" />前往设置
-          </button>
         </div>
       </Layout>
     );
@@ -177,14 +171,10 @@ export default function Create() {
     <Layout title="创建圆桌" showBack backTo="/">
       <div className="max-w-3xl mx-auto w-full px-4 py-6">
         <p className="text-sm text-g500 mb-6">设置讨论主题、主持人和参与角色</p>
-        <div className="flex flex-wrap gap-2 mb-6">
-          <span className="text-xs text-g400 mr-1 self-center">u5febu901fu6a21u677f:</span>
-        </div>
         <form onSubmit={handleSubmit} className="space-y-6 pb-24">
 
           {/* ===== 1. 场景 ===== */}
-          <section className="bg-white rounded-r-xl border-g200 p-s6 space-y-4">
-            <h2 className="text-lg font-semibold text-g900 flex items-center gap-2"><SectionNum n={1} />讨论场景</h2>
+          <section className="space-y-3">
             <div>
               <label className="block text-xs text-g500 mb-1">主题</label>
               <input type="text" value={scenarioTitle} onChange={e => setScenarioTitle(e.target.value)} placeholder="例如：AI 欺诈师圆桌博弈" className="w-full px-3 py-2 text-sm border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent" required />

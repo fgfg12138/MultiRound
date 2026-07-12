@@ -158,6 +158,7 @@ export interface Message {
   error?: string;
   providerId?: string;
   timestamp: number;
+  reasoning?: string;
 }
 
 // ===== 11. 讨论引擎重构 — CharacterOutput + Token 追踪 =====

@@ -235,6 +235,14 @@ export default function Result() {
                 <p className="text-xs text-g500 ml-5">
                   风格：{char.style}
                 </p>
+                {char.secret?.secretRole && (
+                  <p className="text-xs text-g500 ml-5">
+                    身份：{char.secret.secretRole}{char.secret.revealed ? '' : '（未公开）'}
+                  </p>
+                )}
+                <p className="text-xs text-g500 ml-5">
+                  模型：{char.model || '默认'}
+                </p>
               </div>
             ))}
           </div>

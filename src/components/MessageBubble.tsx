@@ -1,6 +1,7 @@
 // ===== AI 圆桌模拟器 — Message Bubble Component =====
 // 设计稿风格：头像 + 气泡 + 名称标签 + 时间/轮次
 
+import { useState } from 'react';
 import type { Message } from '@/lib/types';
 
 /** 清理 LLM 输出中的残留 JSON 片段和 markdown fence */
@@ -15,6 +16,30 @@ function cleanContent(raw: string): string {
   var m = s.match(/"speech"\s*:\s*"([^"]*?)"\s*[,}]/);
   if (m) s = m[1];
   return s.trim();
+}
+
+/** 拓叠思考过程区块 */
+function ReasoningBlock({ reasoning, streaming }: { reasoning: string; streaming?: boolean }) {
+  const [expanded, setExpanded] = useState(streaming || false);
+  if (!reasoning) return null;
+  return (
+    <div className="mb-1.5">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-[11px] text-p600 hover:text-p800 font-medium"
+      >
+        <span className="text-[10px]">{expanded ? '▾' : '▸'}</span>
+        思考过程
+        {streaming && <span className="inline-block w-1 h-1 bg-p500 rounded-full animate-pulse" />}
+      </button>
+      {expanded && (
+        <div className="mt-1 px-2.5 py-2 bg-g50 border border-g200 rounded text-xs leading-relaxed text-g500 whitespace-pre-wrap max-h-48 overflow-y-auto">
+          {reasoning}
+        </div>
+      )}
+    </div>
+  );
 }
 
 const AVATAR_GRADIENTS = [
@@ -80,6 +105,7 @@ export default function MessageBubble({
               <span className="font-medium text-p500">私密消息</span>
             </div>
           )}
+          {message.reasoning && <ReasoningBlock reasoning={message.reasoning} streaming={streaming} />}
           <div>
             {cleanContent(message.content)}
             {streaming && (

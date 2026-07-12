@@ -72,6 +72,7 @@ export interface Message {
   characterId: string | 'host'; characterName: string;
   type: MsgType; content: string;
   error?: string; providerId?: string; timestamp: number;
+  reasoning?: string;
 }
 
 export interface MemoryUpdatePayload {
