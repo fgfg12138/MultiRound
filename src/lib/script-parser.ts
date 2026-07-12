@@ -49,6 +49,8 @@ function parseYamlBlock(yaml: string): ScriptDraft {
     if (!line || line.trim().startsWith('#')) continue;
 
     // Section transitions (highest priority)
+    if (/^\s*modules:/i.test(line)) { currentSection = 'modules'; currentObj = null; continue; }
+    if (/^\s*witchPotions:/i.test(line)) { currentSection = 'witchPotions'; currentObj = null; continue; }
     if (/^\s*characters:/i.test(line)) { currentSection = 'characters'; currentObj = null; continue; }
     if (/^\s*teams:/i.test(line)) { currentSection = 'teams'; currentObj = null; continue; }
     if (/^\s*goal:/i.test(line)) { currentSection = 'goal'; goalObj = {}; currentObj = null; continue; }
@@ -56,8 +58,9 @@ function parseYamlBlock(yaml: string): ScriptDraft {
     if (/^\s*secret:/i.test(line) && currentSection === 'characters' && currentObj) { currentSection = 'secret'; continue; }
     if (/^\s*memory:/i.test(line) && currentSection === 'characters' && currentObj) { currentSection = 'memory'; continue; }
 
-    // Array items (for characters/teams)
-    if (/^\s*-\s/.test(line) && (currentSection === 'characters' || currentSection === 'teams')) {
+    // Array items (for characters/teams, or resetting from secret/memory)
+    if (/^\s*-\s/.test(line) && currentSection && ['characters','teams','secret','memory'].includes(currentSection)) {
+      if (currentSection === 'teams') { /* stays teams */ } else currentSection = 'characters';
       const rest = line.replace(/^\s*-\s+/, '');
       currentObj = {};
       for (const part of rest.split(/[,，]/)) {
@@ -83,7 +86,7 @@ function parseYamlBlock(yaml: string): ScriptDraft {
 
     // Secret/memory nested within characters
     if (currentSection === 'secret' && currentObj) {
-      if (!currentObj.secret) currentObj.secret = {};
+      if (!currentObj.secret) currentObj.secret = {}
       currentObj.secret[key] = val;
       continue;
     }
