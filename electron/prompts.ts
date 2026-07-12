@@ -151,7 +151,12 @@ export function buildCombinedPrompt(rt: RoundTable, c: Character, round: number,
       privateGame,
       memory: mc,
       recentMsgs: rc,
-      instructions: `发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`,
+      instructions: `发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致
+8. 严禁复读上一位发言或简单同意
+9. 观点必须分裂：怀疑不同的人
+10. 推理必须独立成链
+11. 文本狼人杀无肢体语言
+12. 忠于人设${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`,
     };
   };
 
@@ -168,7 +173,12 @@ export function buildCombinedPrompt(rt: RoundTable, c: Character, round: number,
   const mc = buildMemoryContext(c, memoryConfig);
   const fu = hf ? `\n主持人追问：${hf}` : '';
 
-  let result = `你现在扮演：\n\n${p}\n\n${publicGame}\n\n${privateGame}\n\n${mc}\n\n当前第 ${round} 轮。${fu}\n\n近期公开发言：\n${rc}\n\n发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`;
+  let result = `你现在扮演：\n\n${p}\n\n${publicGame}\n\n${privateGame}\n\n${mc}\n\n当前第 ${round} 轮。${fu}\n\n近期公开发言：\n${rc}\n\n发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致
+8. 严禁复读上一位发言或简单同意。必须提出新观点、新怀疑对象或新逻辑链。
+9. 观点必须分裂：不同角色应怀疑不同的人，不许全桌只怀疑一个人。
+10. 推理必须独立成链（验人→怀疑目标→逻辑结论），禁止循环论证。
+11. 文本狼人杀没有眼神/微表情/肢体动作/手势/呼吸，禁止编造这类描写。
+12. 角色性格差异化：你的性格写在人设里，必须忠于人设。${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`;
 
   // Whisper injection (same logic as buildCharSpeech)
   let whisperInjection = '';

@@ -33,7 +33,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   if (guard) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '守卫守人' });
     const targets = rt.characters.filter((c: any) => c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
-    const prompt = `你是守卫。请选择今晚守护的目标。可选：${targets}${rt.lastGuardTarget ? '（昨晚你守了' + (rt.characters.find((c: any) => c.id === rt.lastGuardTarget)?.name || '') + '）' : ''}\n输出 JSON：{"guardTarget": "角色ID"}`;
+    const prompt = `【信息边界】现在是第${round}夜，发生在白天发言之前。不能引用白天信息。文本狼人杀没有肢体语言。\n你是守卫。请选择今晚守护的目标。${round === 1 ? '首夜无信息，随机守。' : ''}\n可选：${targets}${rt.lastGuardTarget ? '（不可连守，昨晚你守了' + (rt.characters.find((c: any) => c.id === rt.lastGuardTarget)?.name || '') + '）' : ''}\n输出 JSON：{"guardTarget": "角色ID"}`;
     const r = await callLlm(sys, prompt, sig, guard.providerId, guard.temperature, undefined, guard.model, guard.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.guardTarget) actions.guardTarget = j.guardTarget; } catch {}
     if (guard.secret) guard.secret.nightActionDone = true;
@@ -42,7 +42,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   if (seer) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '预言家查验' });
     const targets = rt.characters.filter((c: any) => c.id !== seer.id && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
-    const prompt = '你是预言家。请选择今晚查验的目标。可选：' + targets + '\n输出 JSON：{"seerCheck": "角色ID"}';
+    const prompt = '【信息边界】现在是第' + round + '夜，发生在白天发言之前。你不能引用任何白天才发生的发言或事件。文本狼人杀没有肢体语言。' + '\n' + '你是预言家。请选择今晚查验的目标。' + (round === 1 ? '首夜没有信息，请随机选择或按位置习惯验。' : '根据之前验人结果推理，不要编造未验证的信息。') + '\n可选：' + targets + '\n输出 JSON：{"seerCheck": "角色ID"}';
     const r = await callLlm(sys, prompt, sig, seer.providerId, seer.temperature, undefined, seer.model, seer.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; } } catch {}
     if (seer.secret) seer.secret.nightActionDone = true;
@@ -51,7 +51,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   if (wolves.length > 0) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '狼人行动' });
     const targets = rt.characters.filter((c: any) => c.secret?.secretRole !== 'werewolf' && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
-    const prompt = '你们是狼人阵营。请选择今晚杀害的目标。可选：' + targets + '\n狼人成员：' + wolves.map((w: any) => w.name).join('、') + '\n输出 JSON：{"wolfTarget": "角色ID"}';
+    const prompt = '【信息边界】现在是第' + round + '夜，发生在白天发言之前。不能引用白天信息。\n你们是狼人阵营，你们知道彼此身份：' + wolves.map((w: any) => w.name).join('、') + '。\n你们不知道神职身份。请选择今晚杀害的目标。\n可选：' + targets + '\n输出 JSON：{"wolfTarget": "角色ID"}';
     const r = await callLlm(sys, prompt, sig, wolves[0].providerId, wolves[0].temperature, undefined, wolves[0].model, wolves[0].id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.wolfTarget) actions.wolfTarget = j.wolfTarget; } catch {}
     for (const w of wolves) if (w.secret) w.secret.nightActionDone = true;
@@ -60,7 +60,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   if (witch && rt.witchPotions?.heal) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '女巫行动' });
     const wolfTargetChar = actions.wolfTarget ? rt.characters.find((c: any) => c.id === actions.wolfTarget) : undefined;
-    const prompt = '你今晚' + (wolfTargetChar ? '闻到了' + wolfTargetChar.name + '被袭的气味。' : '一切平静。') + '\n你还有' + (rt.witchPotions?.heal ? '解药' : '') + (rt.witchPotions?.heal && rt.witchPotions?.poison ? '和' : '') + (rt.witchPotions?.poison ? '毒药' : '') + '。\n' + (wolfTargetChar ? '是否用解药救' + wolfTargetChar.name + '？' : '') + '\n输出 JSON：{"witchHeal": true/false, "witchPoison": ""}';
+    const prompt = '【信息边界】现在是第' + round + '夜。\n' + (wolfTargetChar ? '你闻到了' + wolfTargetChar.name + '被袭的气味。' : '一切平静。') + '\n你还有' + (rt.witchPotions?.heal ? '解药' : '') + (rt.witchPotions?.heal && rt.witchPotions?.poison ? '和' : '') + (rt.witchPotions?.poison ? '毒药' : '') + '。\n' + (wolfTargetChar ? '是否用解药救' + wolfTargetChar.name + '？' : '') + '\n注意：你不知道守卫守了谁，也不知道预言家验了谁。\n输出 JSON：{"witchHeal": true/false, "witchPoison": ""}';
     const r = await callLlm(sys, prompt, sig, witch.providerId, witch.temperature, undefined, witch.model, witch.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (typeof j.witchHeal === 'boolean') { actions.witchHeal = j.witchHeal; if (j.witchHeal && rt.witchPotions) rt.witchPotions.heal = false; } if (j.witchPoison) { actions.witchPoison = j.witchPoison; if (rt.witchPotions) rt.witchPotions.poison = false; } } catch {}
     if (witch.secret) witch.secret.nightActionDone = true;
