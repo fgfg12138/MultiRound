@@ -159,7 +159,7 @@ export function buildCombinedPrompt(rt: RoundTable, c: Character, round: number,
 9. 观点必须分裂：怀疑不同的人
 10. 推理必须独立成链
 11. 文本狼人杀无肢体语言
-12. 忠于人设${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`,
+12. 忠于人设${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}\n14. 狼人杀术语规则（严格遵守方可用）：悍跳=狼人冒充神职上跳；倒钩=狼人打自己狼队友做身份；冲锋=狼人支持狼同伴带节奏；禁止乱用术语，使用前明确收益\n15. 推理不充分时用概率判断而非断言（如「我判断6真预约40%，8真预约35%」），禁止贴标签式结论`,
     };
   };
 
@@ -181,7 +181,7 @@ export function buildCombinedPrompt(rt: RoundTable, c: Character, round: number,
 9. 观点必须分裂：不同角色应怀疑不同的人，不许全桌只怀疑一个人。
 10. 推理必须独立成链（验人→怀疑目标→逻辑结论），禁止循环论证。
 11. 文本狼人杀没有眼神/微表情/肢体动作/手势/呼吸，禁止编造这类描写。
-12. 角色性格差异化：你的性格写在人设里，必须忠于人设。${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`;
+12. 角色性格差异化：你的性格写在人设里，必须忠于人设。${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}\n14. 狼人杀术语规则：悍跳=狼人冒充神职上跳；倒钩=狼人打自己狼队友做身份；冲锋=狼人支持狼同伴带节奏；禁止乱用术语，使用前明确收益\n15. 推理不充分时用概率判断而非断言（如「我判断6真预约40%，8真预约35%」），禁止贴标签式结论`;
 
   // Whisper injection (same logic as buildCharSpeech)
   let whisperInjection = '';
@@ -355,7 +355,7 @@ export function buildCharSpeech(rt: RoundTable, c: Character, round: number, msg
       privateGame,
       memory: mc,
       recentMsgs: rc,
-      instructions: `发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`,
+      instructions: `发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}`,
     };
     return { sections, fu };
   };
@@ -376,7 +376,7 @@ export function buildCharSpeech(rt: RoundTable, c: Character, round: number, msg
   // —— 用调整后的参数重新组装 ——
   const rc = buildRecentMsgs(msgs, recentMsgsLimit);
   const mc = buildMemoryContext(c, memoryConfig);
-  let result = `你现在扮演：\n\n${p}\n\n${publicGame}\n\n${privateGame}\n\n${mc}\n\n当前第 ${round} 轮。${fu}\n\n近期公开发言：\n${rc}\n\n发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致${c.constraints ? `\n8. 特别注意：${c.constraints}` : ''}`;
+  let result = `你现在扮演：\n\n${p}\n\n${publicGame}\n\n${privateGame}\n\n${mc}\n\n当前第 ${round} 轮。${fu}\n\n近期公开发言：\n${rc}\n\n发言要求：\n1. 以角色的身份和性格说话\n2. 参考前面发言，表示赞同、补充、质疑或反对\n3. 推进你的公开目标和私密目标\n4. 第一人称"我"\n5. 不重复自己之前的观点\n6. 不要直接泄露你的隐藏身份、私密目标、已知秘密和私有记忆\n7. 如果你需要欺骗或隐藏，必须保持前后逻辑一致${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}`;
 
   // Whisper: inject pending whisper context
   let whisperInjection = '';
@@ -442,10 +442,12 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
   }
 
   if (isWw) {
-    return `你是主持人「${rt.host.name}」。第 ${round} 轮白天发言结束。\n\n${gl}\n\n${judge}\n\n本轮发言：\n${finalRm}\n\n总结要求（严格）:\n1. 只陈述本轮公开发言的事实：谁沉默、谁对跳预言家、谁站边、谁被怀疑\n2. 只报双预/单预/沉默/站边分布等中立事实，禁止下任何身份结论\n3. 禁止剧透未翻牌身份、持药状态、守卫守谁、预言家验了谁、狼队关系\n4. 禁止马后炮分析全局、禁止为剧情编造因果\n5. 禁止替玩家下X号就是狼的裁判结论；可列存在两种可能：方案A/方案B\n6. 若启用投票，引出投票环节\n7. 150-250字，纯事实播报，禁止裁判式断言`;
+    return `你是主持人「${rt.host.name}」。第 ${round} 轮白天发言结束。\n\n${gl}\n\n${judge}\n\n本轮发言：\n${finalRm}\n\n总结要求（严格）:\n1. 只陈述本轮公开发言的事实：谁沉默、谁对跳预言家、谁站边、谁被怀疑\n2. 只报双预/单预/沉默/站边分布等中立事实，禁止下任何身份结论\n3. 禁止剧透未翻牌身份、持药状态、守卫守谁、预言家验了谁、狼队关系\n4. 禁止马后炮分析全局、禁止为剧情编造因果\n5. 禁止替玩家下X号就是狼的裁判结论；可列存在两种可能：方案A/方案B\n6. 若启用投票，引出投票环节\n7. 150-250字，纯事实播报，禁止裁判式断言\n8. 可给概率分布而非身份断言（如「6真预约40%，8真预约35%，双狼互踩约10%」），禁止贴标签式结论`;
   }
   return `你是主持人「${rt.host.name}」。\n第 ${round} 轮讨论结束。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}本轮发言：\n${finalRm}\n\n请：\n1. 总结每位角色的核心观点\n2. 指出共识和分歧\n3. 根据发言判断谁更可疑，但绝对不要直接泄露任何角色的隐藏身份、私密目标、已知秘密或阵营归属\n4. 推动角色继续暴露矛盾\n5. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n6. 引出下一轮方向（角色：${cn}）\n\n控制在 200-350 字。保持中立控场，但要有裁判意识。`;
-}export function buildHostFinal(rt: RoundTable, all: Message[]): string {
+}
+
+export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   const tbm = TokenBudgetManager.create(PromptType.HOST_FINAL);
   const rec = all.map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
   const cs = rt.characters.map(c => `${c.name}（${c.role}）—— ${safe(c.stance, '未指定立场')}`).join('\n');
