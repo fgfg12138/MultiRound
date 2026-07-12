@@ -224,9 +224,11 @@ export async function callProviderLLMStream(
         try {
           const data = JSON.parse(jsonStr);
           const delta = data.choices?.[0]?.delta?.content;
-          if (delta) {
-            fullContent += delta;
-            onChunk(delta);
+          const reasonDelta = data.choices?.[0]?.delta?.reasoning_content;
+          const textDelta = delta || reasonDelta;
+          if (textDelta) {
+            fullContent += textDelta;
+            onChunk(textDelta);
           }
         } catch {
           // skip malformed JSON lines
@@ -247,9 +249,27 @@ export async function callProviderLLMStream(
           if (retryRes.ok) {
             const reader = retryRes.body?.getReader();
             if (reader) {
-              let rc = '';
-              while (true) { const { done, value } = await reader.read(); if (done) break; rc += new TextDecoder().decode(value, { stream: true }); }
-              if (rc) fullContent = rc;
+              let rBuf = '';
+              let rFull = '';
+              const rDec = new TextDecoder();
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                rBuf += rDec.decode(value, { stream: true });
+                const rLines = rBuf.split('\n');
+                rBuf = rLines.pop() || '';
+                for (const rl of rLines) {
+                  const rt = rl.trim();
+                  if (!rt || rt === 'data: [DONE]' || !rt.startsWith('data: ')) continue;
+                  const rj = rt.slice(6);
+                  try {
+                    const rd = JSON.parse(rj);
+                    const td = rd.choices?.[0]?.delta?.content || rd.choices?.[0]?.delta?.reasoning_content;
+                    if (td) { rFull += td; onChunk(td); }
+                  } catch {}
+                }
+              }
+              if (rFull) fullContent = rFull;
             }
           }
         }
