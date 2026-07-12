@@ -106,7 +106,7 @@ async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: 
   const votes: Record<string, string> = {};
   for (const voter of aliveChars) {
     const candidates = aliveChars.filter((c: any) => c.id !== voter.id).map((c: any) => c.name + '(' + c.id + ')').join('、');
-    const prompt = '你是' + voter.name + '。现在是投票放逐环节。请投票选择一个角色放逐。可选：' + candidates + '\n输出 JSON：{"vote": "角色ID", "reason": "理由"}';
+    const prompt = '你是' + voter.name + '。现在是投票放逐环节。\n【信息边界】只依据公开发言和票型投票，不用角色不应知的信息。\n请投票选择一个角色放逐。可选：' + candidates + '\n输出 JSON：{"vote": "角色ID", "reason": "理由"}';
     const r = await callLlm(sys, prompt, sig, voter.providerId, voter.temperature, undefined, voter.model, voter.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.vote) votes[voter.id] = j.vote; } catch {}
   }
