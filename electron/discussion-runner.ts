@@ -114,10 +114,16 @@ async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: 
   for (const target of Object.values(votes)) { tally[target] = (tally[target] || 0) + 1; }
   let maxV = 0; let ousted = ''; let tied = false;
   for (const [id, cnt] of Object.entries(tally)) { if (cnt > maxV) { maxV = cnt; ousted = id; tied = false; } else if (cnt === maxV) tied = true; }
-  if (tied && rt.host) {
-    const p2 = '投票平局。\n【主持人约束】你无权下身份结论，只能执行重投或随机决定。\n目标：' + Object.keys(tally).join('、') + '\n输出 JSON：{"vote": "角色ID"}';
-    const hr = await callLlm(sys, p2, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
-    if (hr.content) try { const j = JSON.parse(hr.content); if (j.vote) { ousted = j.vote; tied = false; } } catch {}
+  if (tied) {
+    const tiedIds = Object.keys(tally);
+    const randomPick = tiedIds[Math.floor(Math.random() * tiedIds.length)];
+    ousted = randomPick; tied = false;
+    if (rt.host) {
+      const names = tiedIds.map(id => rt.characters.find((c:any)=>c.id===id)?.name || id).join('、');
+      const pickName = rt.characters.find((c:any)=>c.id===randomPick)?.name || randomPick;
+      const am = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '投票平局（' + names + '）。随机抽签决定 ' + pickName + ' 出局。');
+      all.push(am); send('discuss:message', am);
+    }
   }
   rt.voteResult = { votes, ousted, tied };
   if (ousted) {
