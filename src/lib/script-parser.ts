@@ -11,9 +11,9 @@ export interface ScriptDraft {
   scoringEnabled?: boolean;
   forbiddenTopics?: string[];
   goal?: { type?: string; description?: string; successCriteria?: string };
-  host?: { name?: string; style?: string; mode?: string };
+  host?: { name?: string; style?: string; mode?: string; providerId?: string; model?: string };
   characters?: {
-    name: string; role?: string; persona?: string;
+    name: string; role?: string; persona?: string; providerId?: string; model?: string;
     stance?: string; style?: string;
     motivation?: string; expertise?: string;
     relationship?: string; constraints?: string;

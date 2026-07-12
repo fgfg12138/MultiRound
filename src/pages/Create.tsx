@@ -208,7 +208,7 @@ export default function Create() {
                     if (draft.scoringEnabled != null) setScoringEnabled(draft.scoringEnabled);
                     if (draft.forbiddenTopics) setForbiddenTopics(draft.forbiddenTopics.join(String.fromCharCode(10)));
                     if (draft.goal) { if (draft.goal.type) setGoalType(draft.goal.type as any); if (draft.goal.description) setGoalDesc(draft.goal.description); if (draft.goal.successCriteria) setGoalCriteria(draft.goal.successCriteria); }
-                    if (draft.host) { if (draft.host.name) setHostName(draft.host.name); if (draft.host.style) setHostStyle(draft.host.style); if (draft.host.mode) setHostMode(draft.host.mode as any); }
+                    if (draft.host) { if (draft.host.name) setHostName(draft.host.name); if (draft.host.style) setHostStyle(draft.host.style); if (draft.host.mode) setHostMode(draft.host.mode as any); if (draft.host.providerId) setHostProviderId(draft.host.providerId); }
                     if (draft.characters && draft.characters.length > 0) {
                       setCharacters(draft.characters.map(function(cx) { return withDefaults({ id: generateId(), name: cx.name || '', role: cx.role || '', persona: cx.persona || '', stance: cx.stance || '', style: cx.style || '', motivation: cx.motivation, expertise: cx.expertise, relationship: cx.relationship, constraints: cx.constraints, teamId: cx.teamId, providerId: '' }); }));
                     }
@@ -253,7 +253,8 @@ export default function Create() {
               <div>
                 <label className="block text-xs text-g500 mb-1">模型厂商</label>
                 <select value={hostProviderId} onChange={e => { setHostProviderId(e.target.value); setHostModel(''); }} className="w-full min-w-[160px] px-3 py-2 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 focus:border-transparent bg-white">
-                  {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  <option value="">请选择厂商</option>
+                            {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
                 {(() => { const p = providers.find(p => p.id === hostProviderId); const models = p?.models?.filter(Boolean) || []; if (models.length === 0) return null; return (
                   <select value={hostModel} onChange={e => setHostModel(e.target.value)} className="w-full px-2 py-1.5 text-sm border border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 bg-white mt-1">
@@ -316,13 +317,15 @@ export default function Create() {
                         <td className="py-2 px-2 min-w-[200px]"><textarea value={c.persona} onChange={e => updateCharacter(i, 'persona', e.target.value)} placeholder="角色人设：性格、背景、立场、说话方式..." rows={2} className="w-full px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 resize-none" /></td>
                         <td className="py-2 px-2">
                           <select value={c.providerId} onChange={e => updateCharacter(i, 'providerId', e.target.value)} className="w-full min-w-[160px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white">
+                            <option value="">请选择厂商</option>
                             {providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                           {(() => {
+                            if (!c.providerId) return <p className="text-xs text-g400 mt-1">请先在上方选择厂商</p>;
                             const p = providers.find(p => p.id === c.providerId);
                             const models = (p?.models || []).filter(m => m && m !== 'default');
-                            if (models.length === 0) return <p className="text-xs text-g400 mt-1">该商本未配置可用模型</p>;
-                            if (models.length === 1) return <p className="text-xs text-g400 mt-1">将使例型型：{models[0]}</p>;
+                            if (models.length === 0) return <p className="text-xs text-g400 mt-1">该厂商未配置可用模型</p>;
+                            if (models.length === 1) return <p className="text-xs text-g400 mt-1">将使用模型：{models[0]}</p>;
                             return (
                               <select value={c.model || ''} onChange={e => updateCharacter(i, 'model' as any, e.target.value)} className="w-full min-w-[120px] px-2 py-1.5 text-sm border-g200 rounded-r focus:outline-none focus:ring-1 focus:ring-p400 bg-white mt-1">
                                 <option value="">默认 ({p?.defaultModel || models[0]})</option>
