@@ -26,6 +26,9 @@ export interface CharacterSecret {
   knownSecrets: string[];
   isAlive: boolean;
   revealed: boolean;
+  diedAtRound?: number;
+  diedReason?: 'wolf-kill' | 'witch-poison' | 'voted-out' | 'hunter-shot';
+  nightActionDone?: boolean;
 }
 
 export interface CharacterMemory {
@@ -77,6 +80,44 @@ export interface Host {
 
 // ===== 6. 规则 =====
 export type SpeakOrder = 'sequential' | 'free' | 'host-assigned';
+
+// ===== 游戏模块系统 =====
+export type GamePhase = 'night' | 'day-speech' | 'day-vote' | 'reveal' | 'ended';
+
+export interface GameModules {
+  nightAction: boolean;
+  vote: boolean;
+  deathSilence: boolean;
+  winCheck: boolean;
+  phaseIndicator: boolean;
+}
+
+export function defaultGameModules(): GameModules {
+  return { nightAction: false, vote: false, deathSilence: false, winCheck: false, phaseIndicator: false };
+}
+
+export interface NightActions {
+  wolfTarget?: string;
+  seerCheck?: { target: string; result: 'good' | 'wolf' };
+  witchHeal?: boolean;
+  witchPoison?: string;
+  guardTarget?: string;
+  hunterShot?: string;
+  deaths: { characterId: string; round: number; reason?: string }[];
+}
+
+export interface VoteResult {
+  votes: Record<string, string>;
+  ousted: string;
+  tied: boolean;
+}
+
+export interface DeathEntry {
+  characterId: string;
+  round: number;
+  reason?: string;
+}
+
 
 export interface RuleSet {
   roundCount: number;
@@ -144,6 +185,14 @@ export interface RoundTable {
 
   // 续"场景：新讨论从指定轮开始
   _initialRound?: number;
+  gameMode?: 'discussion' | 'werewolf';
+  modules?: GameModules;
+  phase?: GamePhase;
+  nightActions?: NightActions;
+  voteResult?: VoteResult;
+  deathLog?: DeathEntry[];
+  witchPotions?: { heal: boolean; poison: boolean };
+  lastGuardTarget?: string;
 }
 
 // ===== Message =====
@@ -211,7 +260,7 @@ export interface WhisperMessage {
   senderId: string;           // 'host' 或角色 ID
   recipientId?: string;       // 1:1 私信时，目标角色 ID
   groupId?: string;           // 群组消息时，关联群组 ID
-  type: '1:1' | 'group';
+  type: '1:1' | 'group' | 'night-action';
   content: string;
   timestamp: number;
   status: 'sent' | 'read' | 'unread';

@@ -6,10 +6,32 @@
 export type HostMode = 'visible' | 'invisible' | 'user';
 export type HostSecretAccess = 'none' | 'judge';
 export type SpeakOrder = 'sequential' | 'free' | 'host-assigned';
+
+// ===== 游戏模块系统 =====
+export type GamePhase = 'night' | 'day-speech' | 'day-vote' | 'reveal' | 'ended';
+
+export interface GameModules {
+  nightAction: boolean; vote: boolean; deathSilence: boolean; winCheck: boolean; phaseIndicator: boolean;
+}
+
+export function defaultGameModules(): GameModules {
+  return { nightAction: false, vote: false, deathSilence: false, winCheck: false, phaseIndicator: false };
+}
+
+export interface NightActions {
+  wolfTarget?: string; seerCheck?: { target: string; result: 'good' | 'wolf' };
+  witchHeal?: boolean; witchPoison?: string; guardTarget?: string; hunterShot?: string;
+  deaths: { characterId: string; round: number; reason?: string }[];
+}
+
+export interface VoteResult { votes: Record<string, string>; ousted: string; tied: boolean; }
+
+export interface DeathEntry { characterId: string; round: number; reason?: string; }
+
 export type GoalType = 'consensus' | 'decision' | 'analysis' | 'ranking' | 'debate' | 'creative' | 'custom';
 export type MsgType = 'opening' | 'speech' | 'summary' | 'followup' | 'final_summary' | 'result';
-export type SecretRole = '[redacted]' | 'fraudster' | 'detective' | 'observer' | 'normal';
-export interface WhisperMessage {  id: string;  roundTableId: string;  senderId: string;  recipientId?: string;  groupId?: string;  type: '1:1' | 'group';  content: string;  timestamp: number;  status: 'sent' | 'read' | 'unread';  replyToId?: string;  autoReplyTriggered?: boolean;}export interface WhisperGroup {  id: string;  roundTableId: string;  name: string;  hostId: string;  memberIds: string[];  speakOrder: 'sequential' | 'free' | 'host-assigned';  createdAt: number;  autoReplyEnabled?: boolean;  replyRoundCount?: number;}export interface WhisperData {  whispers: WhisperMessage[];  groups: WhisperGroup[];}export interface TokenRecord {  characterId: string;  round: number;  promptType: string;  estimatedInputTokens: number;  estimatedOutputTokens: number;  timestamp: number;}
+export type SecretRole = '[redacted]' | 'normal' | 'fraudster' | 'detective' | 'observer' | 'werewolf' | 'seer' | 'witch' | 'guard' | 'hunter' | 'villager';
+export interface WhisperMessage {  id: string;  roundTableId: string;  senderId: string;  recipientId?: string;  groupId?: string;  type: '1:1' | 'group' | 'night-action';  content: string;  timestamp: number;  status: 'sent' | 'read' | 'unread';  replyToId?: string;  autoReplyTriggered?: boolean;}export interface WhisperGroup {  id: string;  roundTableId: string;  name: string;  hostId: string;  memberIds: string[];  speakOrder: 'sequential' | 'free' | 'host-assigned';  createdAt: number;  autoReplyEnabled?: boolean;  replyRoundCount?: number;}export interface WhisperData {  whispers: WhisperMessage[];  groups: WhisperGroup[];}export interface TokenRecord {  characterId: string;  round: number;  promptType: string;  estimatedInputTokens: number;  estimatedOutputTokens: number;  timestamp: number;}
 
 export interface CharacterSecret {
   secretRole: SecretRole;
@@ -18,6 +40,9 @@ export interface CharacterSecret {
   knownSecrets: string[];
   isAlive: boolean;
   revealed: boolean;
+  diedAtRound?: number;
+  diedReason?: 'wolf-kill' | 'witch-poison' | 'voted-out' | 'hunter-shot';
+  nightActionDone?: boolean;
 }
 
 export interface CharacterMemory {
@@ -65,6 +90,14 @@ export interface RoundTable {
   scenario: Scenario; host: Host;
   characters: Character[]; rules: RuleSet;
   goal: Goal; runtimeControl?: RuntimeControl;
+  gameMode?: 'discussion' | 'werewolf';
+  modules?: GameModules;
+  phase?: GamePhase;
+  nightActions?: NightActions;
+  voteResult?: VoteResult;
+  deathLog?: DeathEntry[];
+  witchPotions?: { heal: boolean; poison: boolean };
+  lastGuardTarget?: string;
 }
 
 export interface Message {

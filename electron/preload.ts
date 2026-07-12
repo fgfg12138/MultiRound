@@ -110,7 +110,13 @@ try {
       ipcRenderer.on('discuss:awaiting-host-input', handler);
       return () => ipcRenderer.removeListener('discuss:awaiting-host-input', handler);
     },
-    onDiscussPaused: (callback: (info: { roundTableId: string; round: number }) => void) => {
+    onDiscussPhaseChange: (callback: (data: { roundTableId: string; phase: string; label: string }) => void) => {
+    const handler = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('discuss:phase-change', handler);
+    return () => ipcRenderer.removeListener('discuss:phase-change', handler);
+  },
+
+  onDiscussPaused: (callback: (info: { roundTableId: string; round: number }) => void) => {
       const handler = (_event: any, info: any) => callback(info);
       ipcRenderer.on('discuss:paused', handler);
       return () => ipcRenderer.removeListener('discuss:paused', handler);

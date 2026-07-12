@@ -75,6 +75,7 @@ export interface ElectronAPI {
   onDiscussError: (callback: (err: any) => void) => () => void;
   onDiscussAwaitingHostInput: (callback: (info: { roundTableId: string; round: number; phase?: string }) => void) => () => void;
   onDiscussPaused: (callback: (info: { roundTableId: string; round: number }) => void) => () => void;
+  onDiscussPhaseChange: (callback: (data: { roundTableId: string; phase: string; label: string }) => void) => () => void;
   messagesUpdate: (roundTableId: string, messageId: string, content: string) => Promise<{ ok: boolean; error?: string }>;
   messagesDelete: (roundTableId: string, messageId: string) => Promise<{ ok: boolean; error?: string }>;
 

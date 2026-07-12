@@ -20,6 +20,165 @@ import {
 import { sessions, send, buildMsg, callLlm, genId, resolveProvider } from './runner-state.js';
 
 /** startRound — 起始轮次（用于"续"场景，默认 1） */
+
+// ===== 狼人杀夜间阶段 =====
+async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig: AbortSignal): Promise<void> {
+  const mods = rt.modules || {} as any;
+  if (!mods.nightAction) return;
+  const sys = buildSysPrompt();
+  const budget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
+  for (const ch of rt.characters) if (ch.secret) ch.secret.nightActionDone = false;
+  const actions: any = { wolfTarget: undefined, seerCheck: undefined, witchHeal: undefined, witchPoison: undefined, guardTarget: undefined, hunterShot: undefined, deaths: [] };
+  const guard = rt.characters.find((c: any) => c.secret?.secretRole === 'guard' && c.secret?.isAlive !== false);
+  if (guard) {
+    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '守卫守人' });
+    const targets = rt.characters.filter((c: any) => c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
+    const prompt = `你是守卫。请选择今晚守护的目标。可选：${targets}${rt.lastGuardTarget ? '（昨晚你守了' + (rt.characters.find((c: any) => c.id === rt.lastGuardTarget)?.name || '') + '）' : ''}\n输出 JSON：{"guardTarget": "角色ID"}`;
+    const r = await callLlm(sys, prompt, sig, guard.providerId, guard.temperature, undefined, guard.model, guard.id, budget);
+    if (r.content) try { const j = JSON.parse(r.content); if (j.guardTarget) actions.guardTarget = j.guardTarget; } catch {}
+    if (guard.secret) guard.secret.nightActionDone = true;
+  }
+  const seer = rt.characters.find((c: any) => c.secret?.secretRole === 'seer' && c.secret?.isAlive !== false);
+  if (seer) {
+    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '预言家查验' });
+    const targets = rt.characters.filter((c: any) => c.id !== seer.id && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
+    const prompt = '你是预言家。请选择今晚查验的目标。可选：' + targets + '\n输出 JSON：{"seerCheck": "角色ID"}';
+    const r = await callLlm(sys, prompt, sig, seer.providerId, seer.temperature, undefined, seer.model, seer.id, budget);
+    if (r.content) try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; } } catch {}
+    if (seer.secret) seer.secret.nightActionDone = true;
+  }
+  const wolves = rt.characters.filter((c: any) => c.secret?.secretRole === 'werewolf' && c.secret?.isAlive !== false);
+  if (wolves.length > 0) {
+    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '狼人行动' });
+    const targets = rt.characters.filter((c: any) => c.secret?.secretRole !== 'werewolf' && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
+    const prompt = '你们是狼人阵营。请选择今晚杀害的目标。可选：' + targets + '\n狼人成员：' + wolves.map((w: any) => w.name).join('、') + '\n输出 JSON：{"wolfTarget": "角色ID"}';
+    const r = await callLlm(sys, prompt, sig, wolves[0].providerId, wolves[0].temperature, undefined, wolves[0].model, wolves[0].id, budget);
+    if (r.content) try { const j = JSON.parse(r.content); if (j.wolfTarget) actions.wolfTarget = j.wolfTarget; } catch {}
+    for (const w of wolves) if (w.secret) w.secret.nightActionDone = true;
+  }
+  const witch = rt.characters.find((c: any) => c.secret?.secretRole === 'witch' && c.secret?.isAlive !== false);
+  if (witch && rt.witchPotions?.heal) {
+    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '女巫行动' });
+    const wolfTargetChar = actions.wolfTarget ? rt.characters.find((c: any) => c.id === actions.wolfTarget) : undefined;
+    const prompt = '你今晚' + (wolfTargetChar ? '闻到了' + wolfTargetChar.name + '被袭的气味。' : '一切平静。') + '\n你还有' + (rt.witchPotions?.heal ? '解药' : '') + (rt.witchPotions?.heal && rt.witchPotions?.poison ? '和' : '') + (rt.witchPotions?.poison ? '毒药' : '') + '。\n' + (wolfTargetChar ? '是否用解药救' + wolfTargetChar.name + '？' : '') + '\n输出 JSON：{"witchHeal": true/false, "witchPoison": ""}';
+    const r = await callLlm(sys, prompt, sig, witch.providerId, witch.temperature, undefined, witch.model, witch.id, budget);
+    if (r.content) try { const j = JSON.parse(r.content); if (typeof j.witchHeal === 'boolean') { actions.witchHeal = j.witchHeal; if (j.witchHeal && rt.witchPotions) rt.witchPotions.heal = false; } if (j.witchPoison) { actions.witchPoison = j.witchPoison; if (rt.witchPotions) rt.witchPotions.poison = false; } } catch {}
+    if (witch.secret) witch.secret.nightActionDone = true;
+  }
+  const targetId = actions.wolfTarget;
+  const guardId = actions.guardTarget;
+  const poisonTarget = actions.witchPoison;
+  if (targetId && targetId !== guardId) {
+    const victim = rt.characters.find((c: any) => c.id === targetId);
+    if (victim?.secret && victim.secret.isAlive !== false) {
+      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'wolf-kill';
+      actions.deaths.push({ characterId: targetId, round: round, reason: 'wolf-kill' });
+    }
+  }
+  if (poisonTarget && poisonTarget !== targetId) {
+    const victim = rt.characters.find((c: any) => c.id === poisonTarget);
+    if (victim?.secret && victim.secret.isAlive !== false) {
+      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'witch-poison';
+      actions.deaths.push({ characterId: poisonTarget, round: round, reason: 'witch-poison' });
+    }
+  }
+  rt.nightActions = actions;
+  rt.deathLog = [...(rt.deathLog || []), ...actions.deaths];
+  rt.lastGuardTarget = actions.guardTarget || rt.lastGuardTarget;
+}
+
+async function runRevealPhase(rt: RoundTable, round: number, all: Message[], sig: AbortSignal): Promise<void> {
+  const actions = rt.nightActions; if (!actions || actions.deaths.length === 0) return;
+  const sys = buildSysPrompt(); const budget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
+  const deathNames = actions.deaths.map((d: any) => rt.characters.find((c: any) => c.id === d.characterId)?.name || d.characterId).join('、');
+  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 被杀害了。\n（死者：' + actions.deaths.map((d: any) => rt.characters.find((c: any) => c.id === d.characterId)?.name).join('、') + '）\n请用庄重的语气宣布结果，不要透露死者的身份。然后请存活角色开始发言。';
+  send('discuss:phase-change', { roundTableId: rt.id, phase: 'reveal', label: '天亮公布' });
+  const r = await callLlm(sys, prompt, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
+  if (r.content) { const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content); all.push(m); send('discuss:message', m); }
+}
+
+async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: AbortSignal): Promise<void> {
+  if (!rt.modules?.vote) return;
+  const sys = buildSysPrompt(); const budget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
+  const aliveChars = rt.characters.filter((c: any) => c.secret?.isAlive !== false);
+  if (aliveChars.length < 2) return;
+  send('discuss:phase-change', { roundTableId: rt.id, phase: 'vote', label: '投票放逐' });
+  const votes: Record<string, string> = {};
+  for (const voter of aliveChars) {
+    const candidates = aliveChars.filter((c: any) => c.id !== voter.id).map((c: any) => c.name + '(' + c.id + ')').join('、');
+    const prompt = '你是' + voter.name + '。现在是投票放逐环节。请投票选择一个角色放逐。可选：' + candidates + '\n输出 JSON：{"vote": "角色ID", "reason": "理由"}';
+    const r = await callLlm(sys, prompt, sig, voter.providerId, voter.temperature, undefined, voter.model, voter.id, budget);
+    if (r.content) try { const j = JSON.parse(r.content); if (j.vote) votes[voter.id] = j.vote; } catch {}
+  }
+  const tally: Record<string, number> = {};
+  for (const target of Object.values(votes)) { tally[target] = (tally[target] || 0) + 1; }
+  let maxV = 0; let ousted = ''; let tied = false;
+  for (const [id, cnt] of Object.entries(tally)) { if (cnt > maxV) { maxV = cnt; ousted = id; tied = false; } else if (cnt === maxV) tied = true; }
+  if (tied && rt.host) {
+    const p2 = '投票平局。请裁定放逐谁？目标：' + Object.keys(tally).join('、') + '\n输出 JSON：{"vote": "角色ID"}';
+    const hr = await callLlm(sys, p2, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
+    if (hr.content) try { const j = JSON.parse(hr.content); if (j.vote) { ousted = j.vote; tied = false; } } catch {}
+  }
+  rt.voteResult = { votes, ousted, tied };
+  if (ousted) {
+    const eliminated = rt.characters.find((c: any) => c.id === ousted);
+    if (eliminated?.secret && eliminated.secret.isAlive !== false) {
+      eliminated.secret.isAlive = false; eliminated.secret.diedAtRound = round; eliminated.secret.diedReason = 'voted-out';
+      rt.deathLog = [...(rt.deathLog || []), { characterId: ousted, round: round, reason: 'voted-out' }];
+      const announce = eliminated.name + '（' + (eliminated.secret.revealed ? eliminated.secret.secretRole : '身份未揭') + '）出局。';
+      if (rt.host) { const am = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', announce); all.push(am); send('discuss:message', am); }
+    }
+  }
+}
+
+function checkWinCondition(rt: RoundTable): { over: boolean; winner?: string } {
+  const aliveChars = rt.characters.filter((c: any) => c.secret?.isAlive !== false);
+  if (aliveChars.length === 0) return { over: true, winner: '平局' };
+  const aliveWolves = aliveChars.filter((c: any) => c.secret?.secretRole === 'werewolf');
+  const aliveGood = aliveChars.filter((c: any) => c.secret?.secretRole !== 'werewolf');
+  if (aliveWolves.length === 0) return { over: true, winner: '好人阵营' };
+  if (aliveWolves.length >= aliveGood.length) return { over: true, winner: '狼人阵营' };
+  return { over: false };
+}
+
+async function runDaySpeech(rt: RoundTable, ch: Character, round: number, all: Message[], sig: AbortSignal, speechBudget: number, tokenTracker: any): Promise<void> {
+  const sys = buildSysPrompt();
+  if (sig?.aborted) throw new Error('生成已中止');
+  if (ch.secret?.isAlive === false) return;
+  send('discuss:character-start', ch.name);
+  let streamedContent = '';
+  const parser = new StreamingJsonParser();
+  let lastSpeechLen = 0;
+  let fallbackToRaw = false;
+  const onChunk = (chunk: string) => {
+    streamedContent += chunk;
+    if (fallbackToRaw) { send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); return; }
+    const res = parser.feedChunk(chunk);
+    const speech = res.speechBuffer;
+    if (speech.length > lastSpeechLen) {
+      const delta = speech.slice(lastSpeechLen); lastSpeechLen = speech.length;
+      send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: delta });
+    } else if (streamedContent.length > 10 && !streamedContent.trimStart().startsWith('{')) {
+      fallbackToRaw = true; send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
+    }
+  };
+  const onReasoningChunk = (rc: string) => { send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, reasoningChunk: rc }); };
+  const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
+  const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
+  const rawContent = r.content || streamedContent || (r.error ? '（' + ch.name + ' 生成失败: ' + r.error + '）' : '（' + ch.name + ' 未能生成发言）');
+  const parsed = parseCharacterOutput(rawContent);
+  const speechContent = parsed ? parsed.speech : rawContent;
+  send('discuss:stream-end', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, content: speechContent, error: r.error });
+  const m = buildMsg(rt.id, round, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId, reasoning: r.reasoning });
+  all.push(m); send('discuss:message', m);
+  if (!r.error && parsed?.payload) mergeMemoryUpdate(ch, parsed.payload);
+  if (r.content || streamedContent) {
+    const outputText = r.content || streamedContent;
+    tokenTracker.record({ characterId: ch.id, round: round, promptType: 'CHAR_SPEECH_COMBINED', inputText: combinedPrompt, outputText });
+    send('discuss:token-update', { roundTableId: rt.id, records: tokenTracker.getAllRecords() });
+  }
+}
+
 export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<void> {
   normalizeRoundTable(rt);
   const speechBudget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
@@ -62,23 +221,42 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
     }
 
     const cap = rt.totalRounds === 0 ? 999 : rt.totalRounds;
+    const mods = rt.modules || { nightAction: false, vote: false, deathSilence: false, winCheck: false, phaseIndicator: false };
+    const isGame = mods.nightAction || mods.vote;
     let round = startRound;
     while (round <= cap) {
       if (sig?.aborted) throw new Error('生成已中止');
 
+      if (isGame) {
+        if ((mods as any).nightAction) {
+          send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '夜间' });
+          await runNightPhase(rt, round, all, sig);
+          await runRevealPhase(rt, round, all, sig);
+        }
+        if ((mods as any).winCheck) {
+          const win = checkWinCondition(rt);
+          if (win.over) {
+            if (rt.host?.mode !== 'user' && !invisible) {
+              const fs = await tryCall(rt.host.name, sys, buildHostFinal(rt, all), rt.host.providerId, rt.host.temperature, rt.host.model, 'host', speechBudget);
+              all.push(buildMsg(rt.id, round, 'host', rt.host.name, 'final_summary', fs.content || '游戏结束', { error: fs.error }));
+              send('discuss:message', all[all.length - 1]);
+            }
+            if (win.winner) { all.push(buildMsg(rt.id, round, 'host', rt.host.name, 'result', win.winner + '获胜！')); send('discuss:message', all[all.length - 1]); }
+            break;
+          }
+        }
+        send('discuss:phase-change', { roundTableId: rt.id, phase: 'day-speech', label: '白天讨论' });
+      }
+
       const aliveChars = rt.characters.filter((c) => c.secret?.isAlive !== false);
       let speechOrder: Character[];
       const speakOrder = rt.rules?.speakOrder ?? 'sequential';
-
-      if (speakOrder === 'free') {
-        speechOrder = [...aliveChars].sort(() => Math.random() - 0.5);
-      } else if (speakOrder === 'host-assigned') {
+      if (speakOrder === 'free') { speechOrder = [...aliveChars].sort(() => Math.random() - 0.5); }
+      else if (speakOrder === 'host-assigned') {
         const hostAssignPrompt = buildHostAssignPrompt(rt, round, aliveChars);
         const hostAssignResult = await tryCall(rt.host.name, sys, hostAssignPrompt, rt.host.providerId, rt.host.temperature, rt.host.model, 'host', speechBudget);
         speechOrder = parseHostAssignedOrder(hostAssignResult.content || '', aliveChars);
-      } else {
-        speechOrder = aliveChars;
-      }
+      } else { speechOrder = aliveChars; }
 
       for (const ch of speechOrder) {
         if (sig?.aborted) throw new Error('生成已中止');
@@ -90,41 +268,28 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
           await s?.pausePromise;
           if (sig?.aborted) throw new Error('生成已中止');
         }
-        send('discuss:character-start', ch.name);
-        let streamedContent = '';
-        const parser = new StreamingJsonParser();
-        let lastSpeechLen = 0;
-        let fallbackToRaw = false;
-        const onChunk = (chunk: string) => {
-          streamedContent += chunk;
-          if (fallbackToRaw) { send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); return; }
-          const res = parser.feedChunk(chunk);
-          const speech = res.speechBuffer;
-          if (speech.length > lastSpeechLen) {
-            const delta = speech.slice(lastSpeechLen);
-            lastSpeechLen = speech.length;
-            send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: delta });
-          } else if (streamedContent.length > 10 && !streamedContent.trimStart().startsWith('{')) {
-            fallbackToRaw = true;
-            send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
+        await runDaySpeech(rt, ch, round, all, sig, speechBudget, tokenTracker);
+      }
+      if (round < cap) {
+        if (sig?.aborted) throw new Error('生成已中止');
+
+        if ((mods as any).vote) {
+          await runVotePhase(rt, round, all, sig);
+          if ((mods as any).winCheck) {
+            const win = checkWinCondition(rt);
+            if (win.over && win.winner) { all.push(buildMsg(rt.id, round, 'host', rt.host.name, 'result', win.winner + '获胜！')); send('discuss:message', all[all.length - 1]); break; }
           }
-        };
-        const onReasoningChunk = (reasoningChunk: string) => {
-          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, reasoningChunk });
-        };
-        const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
-        const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
-        const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
-        const parsed = parseCharacterOutput(rawContent);
-        const speechContent = parsed ? parsed.speech : rawContent;
-        send('discuss:stream-end', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, content: speechContent, error: r.error });
-        const m = buildMsg(rt.id, round, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId, reasoning: r.reasoning });
-        all.push(m); send('discuss:message', m);
-        if (!r.error && parsed?.payload) mergeMemoryUpdate(ch, parsed.payload);
-        if (r.content || streamedContent) {
-          const outputText = r.content || streamedContent;
-          tokenTracker.record({ characterId: ch.id, round, promptType: 'CHAR_SPEECH_COMBINED', inputText: combinedPrompt, outputText });
-          send('discuss:token-update', { roundTableId: rt.id, records: tokenTracker.getAllRecords() });
+        }
+
+        if (rt.host?.mode === 'user') {
+          send('discuss:awaiting-host-input', { roundTableId: rt.id, round });
+          const userInput = await new Promise<string>((resolve) => { const s = sessions.get(rt.id); if (s) s.hostInputResolver = resolve; });
+          if (sig?.aborted) throw new Error('生成已中止');
+          const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', userInput); all.push(m); send('discuss:message', m);
+        } else if (!invisible && !isGame) {
+          send('discuss:character-start', rt.host.name);
+          const r = await tryCall(rt.host.name, sys, buildHostSum(rt, round, all), rt.host.providerId, rt.host.temperature, rt.host.model, 'host', speechBudget);
+          const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content || '', { error: r.error }); all.push(m); send('discuss:message', m);
         }
       }
       if (round < cap) {
@@ -208,17 +373,25 @@ export async function appendRound(rt: RoundTable): Promise<void> {
 
   try {
     if (sig?.aborted) throw new Error('生成已中止');
+    const mods: any = rt.modules || {};
+    const isGame = mods.nightAction || mods.vote;
     const aliveChars = rt.characters.filter((c) => c.secret?.isAlive !== false);
     let speechOrder: Character[];
     const speakOrder = rt.rules?.speakOrder ?? 'sequential';
-    if (speakOrder === 'free') {
-      speechOrder = [...aliveChars].sort(() => Math.random() - 0.5);
-    } else if (speakOrder === 'host-assigned') {
+    if (speakOrder === 'free') { speechOrder = [...aliveChars].sort(() => Math.random() - 0.5); }
+    else if (speakOrder === 'host-assigned') {
       const hostAssignPrompt = buildHostAssignPrompt(rt, nextRound, aliveChars);
       const hostAssignResult = await tryCall(rt.host.name, sys, hostAssignPrompt, rt.host.providerId, rt.host.temperature, rt.host.model, 'host', speechBudget);
       speechOrder = parseHostAssignedOrder(hostAssignResult.content || '', aliveChars);
-    } else {
-      speechOrder = aliveChars;
+    } else { speechOrder = aliveChars; }
+
+    if (isGame) {
+      await runNightPhase(rt, nextRound, all, sig);
+      await runRevealPhase(rt, nextRound, all, sig);
+      if ((mods as any).winCheck) {
+        const win = checkWinCondition(rt);
+        if (win.over && win.winner) { all.push(buildMsg(rt.id, nextRound, 'host', rt.host.name, 'result', win.winner + '获胜！')); send('discuss:complete', { roundTableId: rt.id, messages: all }); sessions.delete(rt.id); return; }
+      }
     }
 
     for (const ch of speechOrder) {
@@ -226,46 +399,16 @@ export async function appendRound(rt: RoundTable): Promise<void> {
       if (ch.secret?.isAlive === false) continue;
       while (sessions.get(rt.id)?.pausePromise) {
         send('discuss:paused', { roundTableId: rt.id, round: nextRound });
-        const s = sessions.get(rt.id);
-        if (s?.controller.signal.aborted) break;
-        await s?.pausePromise;
-        if (sig?.aborted) throw new Error('生成已中止');
+        const s = sessions.get(rt.id); if (s?.controller.signal.aborted) break; await s?.pausePromise; if (sig?.aborted) throw new Error('生成已中止');
       }
-      send('discuss:character-start', ch.name);
-      let streamedContent = '';
-      const parser = new StreamingJsonParser();
-      let lastSpeechLen = 0;
-      let fallbackToRaw = false;
-      const onChunk = (chunk: string) => {
-        streamedContent += chunk;
-        if (fallbackToRaw) { send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk }); return; }
-        const res = parser.feedChunk(chunk);
-        const speech = res.speechBuffer;
-        if (speech.length > lastSpeechLen) {
-          const delta = speech.slice(lastSpeechLen);
-          lastSpeechLen = speech.length;
-          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: delta });
-        } else if (streamedContent.length > 10 && !streamedContent.trimStart().startsWith('{')) {
-          fallbackToRaw = true;
-          send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, chunk: streamedContent });
-        }
-      };
-      const onReasoningChunk = (reasoningChunk: string) => {
-        send('discuss:stream-chunk', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, reasoningChunk });
-      };
-      const combinedPrompt = buildCombinedPrompt(rt, ch, nextRound, all);
-      const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
-      const rawContent = r.content || streamedContent || (r.error ? `（${ch.name} 生成失败: ${r.error}）` : `（${ch.name} 未能生成发言）`);
-      const parsed = parseCharacterOutput(rawContent);
-      const speechContent = parsed ? parsed.speech : rawContent;
-      send('discuss:stream-end', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, content: speechContent, error: r.error });
-      const m = buildMsg(rt.id, nextRound, ch.id, ch.name, 'speech', speechContent, { error: r.error, provId: ch.providerId, reasoning: r.reasoning });
-      all.push(m); send('discuss:message', m);
-      if (!r.error && parsed?.payload) mergeMemoryUpdate(ch, parsed.payload);
-      if (r.content || streamedContent) {
-      const outputText = r.content || streamedContent;
-        tokenTracker.record({ characterId: ch.id, round: nextRound, promptType: 'CHAR_SPEECH_COMBINED', inputText: combinedPrompt, outputText });
-        send('discuss:token-update', { roundTableId: rt.id, records: tokenTracker.getAllRecords() });
+      await runDaySpeech(rt, ch, nextRound, all, sig, speechBudget, tokenTracker);
+    }
+
+    if (isGame && mods.vote) {
+      await runVotePhase(rt, nextRound, all, sig);
+      if ((mods as any).winCheck) {
+        const win = checkWinCondition(rt);
+        if (win.over && win.winner) { all.push(buildMsg(rt.id, nextRound, 'host', rt.host.name, 'result', win.winner + '获胜！')); send('discuss:complete', { roundTableId: rt.id, messages: all }); sessions.delete(rt.id); return; }
       }
     }
 
