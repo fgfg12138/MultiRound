@@ -474,9 +474,33 @@ export default function Create() {
             </div>
           </section>
 
-          {/* ===== 6. 目标 ===== */}
+          {/* ===== 6. 游戏模块 ===== */}
           <section className="bg-white rounded-r-xl border-g200 p-s6 space-y-4">
-            <h2 className="text-lg font-semibold text-g900 flex items-center gap-2"><SectionNum n={6} />讨论目标</h2>
+            <h2 className="text-lg font-semibold text-g900 flex items-center gap-2"><SectionNum n={6} />游戏模块 <span className="text-xs font-normal text-g400 ml-1">（可自定义组合，狼人杀模式默认全开）</span></h2>
+
+            <div className="flex gap-2 mb-2">
+              <button type="button" onClick={() => { setGameMode('discussion'); setModNightAction(false); setModVote(false); setModDeathSilence(false); setModWinCheck(false); setModPhaseIndicator(false); }}
+                className={`px-3 py-1.5 text-sm rounded-r-lg border ${gameMode === 'discussion' ? 'bg-p600 text-white border-p600' : 'bg-white border-g300 text-g600 hover:bg-g50'}`}>
+                讨论模式
+              </button>
+              <button type="button" onClick={() => { setGameMode('werewolf'); setModNightAction(true); setModVote(true); setModDeathSilence(true); setModWinCheck(true); setModPhaseIndicator(true); }}
+                className={`px-3 py-1.5 text-sm rounded-r-lg border ${gameMode === 'werewolf' ? 'bg-p600 text-white border-p600' : 'bg-white border-g300 text-g600 hover:bg-g50'}`}>
+                狼人杀模式
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label className="flex items-center gap-2 text-sm text-g700"><input type="checkbox" checked={modNightAction} onChange={e => setModNightAction(e.target.checked)} className="rounded" />夜晚行动</label>
+              <label className="flex items-center gap-2 text-sm text-g700"><input type="checkbox" checked={modVote} onChange={e => setModVote(e.target.checked)} className="rounded" />投票放逐</label>
+              <label className="flex items-center gap-2 text-sm text-g700"><input type="checkbox" checked={modDeathSilence} onChange={e => setModDeathSilence(e.target.checked)} className="rounded" />死亡停言/公布</label>
+              <label className="flex items-center gap-2 text-sm text-g700"><input type="checkbox" checked={modWinCheck} onChange={e => setModWinCheck(e.target.checked)} className="rounded" />胜负判定</label>
+              <label className="flex items-center gap-2 text-sm text-g700"><input type="checkbox" checked={modPhaseIndicator} onChange={e => setModPhaseIndicator(e.target.checked)} className="rounded" />阶段指示 UI</label>
+            </div>
+          </section>
+
+          {/* ===== 7. 目标 ===== */}
+          <section className="bg-white rounded-r-xl border-g200 p-s6 space-y-4">
+            <h2 className="text-lg font-semibold text-g900 flex items-center gap-2"><SectionNum n={7} />讨论目标</h2>
             <div>
               <label className="block text-xs text-g500 mb-1">目标类型</label>
               <select value={goalType} onChange={e => setGoalType(e.target.value as any)} className="w-full sm:w-48 px-3 py-2 text-sm border-g300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-p400 bg-white">
