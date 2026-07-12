@@ -11,6 +11,9 @@ export function createDefaultSecret(overrides?: Partial<CharacterSecret>): Chara
     knownSecrets: [],
     isAlive: true,
     revealed: false,
+    diedAtRound: undefined,
+    diedReason: undefined,
+    nightActionDone: false,
     ...overrides,
   };
 }

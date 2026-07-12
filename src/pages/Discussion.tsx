@@ -61,6 +61,11 @@ function getColorIndex(charId: string, characters: { id: string }[]): number {
   return characters.findIndex((c) => c.id === charId);
 }
 
+function phaseLabel(p: string): string {
+  const labels: Record<string, string> = { 'night': '🌙 夜晚', 'day-speech': '☀️ 白天', 'day-vote': '🗳 投票', 'reveal': '☠ 公布', 'ended': '🏁 结束' };
+  return labels[p] || p;
+}
+
 export default function Discussion() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

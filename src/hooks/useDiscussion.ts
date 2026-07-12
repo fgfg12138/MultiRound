@@ -22,6 +22,7 @@ export function useDiscussion() {
   const [error, setError] = useState('');
   const [currentRound, setCurrentRound] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [phase, setPhase] = useState<string>('');
   const [currentCharacter, setCurrentCharacter] = useState<string | null>(null);
   const [failedCharacters, setFailedCharacters] = useState<FailedCharacter[]>([]);
   const [generateStatus, setGenerateStatus] = useState<GenerateStatus>('idle');
