@@ -50,7 +50,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     const targets = rt.characters.filter((c: any) => c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
     const prompt = `【信息边界】现在是第${round}夜，发生在白天发言之前。不能引用白天信息。文本狼人杀没有肢体语言。\n你是守卫。请选择今晚守护的目标。${round === 1 ? '首夜无信息，随机守。' : ''}\n可选：${targets}${rt.lastGuardTarget ? '（不可连守，昨晚你守了' + (rt.characters.find((c: any) => c.id === rt.lastGuardTarget)?.name || '') + '）' : ''}\n输出 JSON：{"guardTarget": "角色ID"}`;
     const r = await callLlm(sys, prompt, sig, guard.providerId, guard.temperature, undefined, guard.model, guard.id, budget);
-    if (r.content) try { const j = JSON.parse(r.content); if (j.guardTarget) { actions.guardTarget = j.guardTarget; var gn = rt.characters.find((cx: any) => cx.id === j.guardTarget)?.name || j.guardTarget; pushNightWhisper(rt, guard.id, '✅ 守卫今晚守护了 ' + gn, true); } else pushNightWhisper(rt, guard.id, '⏭ 守卫今夜未行动', true); } catch { pushNightWhisper(rt, guard.id, '⏭ 守卫未响应', true); }
+    if (r.content) try { const j = JSON.parse(r.content); if (j.guardTarget) { if (rt.lastGuardTarget && j.guardTarget === rt.lastGuardTarget) { pushNightWhisper(rt, guard.id, '⚠️ 不能连续两晚守同一人。本夜未行动。', true); } else { actions.guardTarget = j.guardTarget; var gn = rt.characters.find((cx: any) => cx.id === j.guardTarget)?.name || j.guardTarget; pushNightWhisper(rt, guard.id, '✅ 守卫今晚守护了 ' + gn, true); } } else pushNightWhisper(rt, guard.id, '⏭ 守卫今夜未行动', true); } catch { pushNightWhisper(rt, guard.id, '⏭ 守卫未响应', true); }
     if (guard.secret) guard.secret.nightActionDone = true;
       send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🛡️ 守卫已选择今晚守护目标（保密）。'));
   }
