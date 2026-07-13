@@ -44,8 +44,8 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   for (const ch of rt.characters) if (ch.secret) ch.secret.nightActionDone = false;
   const actions: any = { wolfTarget: undefined, seerCheck: undefined, witchHeal: undefined, witchPoison: undefined, guardTarget: undefined, hunterShot: undefined, deaths: [] };
   const guard = rt.characters.find((c: any) => c.secret?.secretRole === 'guard' && c.secret?.isAlive !== false);
+  send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🌙 第' + round + '夜降临…请大家闭眼。上帝依次询问各角色行动。'));
   if (guard) {
-    send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🌙 第' + round + '夜降临…请大家闭眼。上帝依次询问各角色行动。'));
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '守卫守人' });
     const targets = rt.characters.filter((c: any) => c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
     const prompt = `【信息边界】现在是第${round}夜，发生在白天发言之前。不能引用白天信息。文本狼人杀没有肢体语言。\n你是守卫。请选择今晚守护的目标。${round === 1 ? '首夜无信息，随机守。' : ''}\n可选：${targets}${rt.lastGuardTarget ? '（不可连守，昨晚你守了' + (rt.characters.find((c: any) => c.id === rt.lastGuardTarget)?.name || '') + '）' : ''}\n输出 JSON：{"guardTarget": "角色ID"}`;
@@ -120,7 +120,7 @@ async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: 
   send('discuss:phase-change', { roundTableId: rt.id, phase: 'vote', label: '投票放逐' });
   send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🗳 投票开始——存活玩家请投出一票放逐一人。'));
   const votes: Record<string, string> = {};
-  const speechThisRound = all.filter((m: any) => m.round === round && m.type === 'speech');
+  const speechThisRound = all.filter((m: any) => m.round === round && m.type === 'speech' && !m.error);
   for (const voter of aliveChars) {
     const hasSpoken = speechThisRound.some((m: any) => m.characterId === voter.id);
     if (!hasSpoken) { continue; } // 未发言玩家默认弃票
