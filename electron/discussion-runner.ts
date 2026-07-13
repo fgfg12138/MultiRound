@@ -45,26 +45,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   const actions: any = { wolfTarget: undefined, seerCheck: undefined, witchHeal: undefined, witchPoison: undefined, guardTarget: undefined, hunterShot: undefined, deaths: [] };
   const guard = rt.characters.find((c: any) => c.secret?.secretRole === 'guard' && c.secret?.isAlive !== false);
   send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🌙 第' + round + '夜降临…请大家闭眼。上帝依次询问各角色行动。'));
-  if (guard) {
-    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '守卫守人' });
-    const targets = rt.characters.filter((c: any) => c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
-    const prompt = `【信息边界】现在是第${round}夜，发生在白天发言之前。不能引用白天信息。文本狼人杀没有肢体语言。\n你是守卫。请选择今晚守护的目标。${round === 1 ? '首夜无信息，随机守。' : ''}\n可选：${targets}${rt.lastGuardTarget ? '（不可连守，昨晚你守了' + (rt.characters.find((c: any) => c.id === rt.lastGuardTarget)?.name || '') + '）' : ''}\n输出 JSON：{"guardTarget": "角色ID"}`;
-    const r = await callLlm(sys, prompt, sig, guard.providerId, guard.temperature, undefined, guard.model, guard.id, budget);
-    if (r.content) try { const j = JSON.parse(r.content); if (j.guardTarget) { if (rt.lastGuardTarget && j.guardTarget === rt.lastGuardTarget) { pushNightWhisper(rt, guard.id, '⚠️ 不能连续两晚守同一人。本夜未行动。', true); } else { actions.guardTarget = j.guardTarget; var gn = rt.characters.find((cx: any) => cx.id === j.guardTarget)?.name || j.guardTarget; pushNightWhisper(rt, guard.id, '✅ 守卫今晚守护了 ' + gn, true); } } else pushNightWhisper(rt, guard.id, '⏭ 守卫今夜未行动', true); } catch { pushNightWhisper(rt, guard.id, '⏭ 守卫未响应', true); }
-    if (guard.secret) guard.secret.nightActionDone = true;
-      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🛡️ 守卫已选择今晚守护目标（保密）。'));
-  }
-  const seer = rt.characters.find((c: any) => c.secret?.secretRole === 'seer' && c.secret?.isAlive !== false);
-  if (seer) {
-    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '预言家查验' });
-    const targets = rt.characters.filter((c: any) => c.id !== seer.id && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
-    const prompt = '【信息边界】现在是第' + round + '夜，发生在白天发言之前。你不能引用任何白天才发生的发言或事件。文本狼人杀没有肢体语言。' + '\n' + '你是预言家。请选择今晚查验的目标。' + (round === 1 ? '首夜没有信息，请随机选择或按位置习惯验。' : '根据之前验人结果推理，不要编造未验证的信息。') + '\n可选：' + targets + '\n输出 JSON：{"seerCheck": "角色ID"}';
-    const r = await callLlm(sys, prompt, sig, seer.providerId, seer.temperature, undefined, seer.model, seer.id, budget);
-    if (r.content) { try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); var sr = target?.secret?.secretRole === 'werewolf' ? '狼人' : '好人'; actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; if (seer.secret && target) { if (!seer.secret.knownSecrets) seer.secret.knownSecrets = []; seer.secret.knownSecrets.push('第' + round + '夜验人：' + target.name + '(' + j.seerCheck + ') 是' + sr); } await pushNightWhisper(rt, seer.id, '🔮 查验结果：' + (target?.name || j.seerCheck) + ' 是 ' + sr, true); } else { await pushNightWhisper(rt, seer.id, '🔮 本夜查验未能完成（未输出目标）。', true); } } catch { await pushNightWhisper(rt, seer.id, '🔮 本夜查验未能完成（输出格式错误）。', true); } }
-    if (seer.secret) seer.secret.nightActionDone = true;
-      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🔮 预言家已完成查验（结果保密）。'));
-  }
-  const wolves = rt.characters.filter((c: any) => c.secret?.secretRole === 'werewolf' && c.secret?.isAlive !== false);
+const wolves = rt.characters.filter((c: any) => c.secret?.secretRole === 'werewolf' && c.secret?.isAlive !== false);
   if (wolves.length > 0) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '狼人行动' });
     const targets = rt.characters.filter((c: any) => c.secret?.secretRole !== 'werewolf' && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
@@ -74,7 +55,8 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     for (const w of wolves) if (w.secret) w.secret.nightActionDone = true;
       send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🐺 狼人已商定今夜目标（保密）。'));
   }
-  const witch = rt.characters.find((c: any) => c.secret?.secretRole === 'witch' && c.secret?.isAlive !== false);
+  
+const witch = rt.characters.find((c: any) => c.secret?.secretRole === 'witch' && c.secret?.isAlive !== false);
   if (witch && (rt.witchPotions?.heal || rt.witchPotions?.poison)) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '女巫行动' });
     const wolfTargetChar = actions.wolfTarget ? rt.characters.find((c: any) => c.id === actions.wolfTarget) : undefined;
@@ -84,7 +66,20 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     if (witch.secret) witch.secret.nightActionDone = true;
       send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🧪 女巫已做出决定（保密）。'));
   }
-  const targetId = actions.wolfTarget;
+  
+const seer = rt.characters.find((c: any) => c.secret?.secretRole === 'seer' && c.secret?.isAlive !== false);
+  if (seer) {
+    send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '预言家查验' });
+    const targets = rt.characters.filter((c: any) => c.id !== seer.id && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
+    const prompt = '【信息边界】现在是第' + round + '夜，发生在白天发言之前。你不能引用任何白天才发生的发言或事件。文本狼人杀没有肢体语言。' + '\n' + '你是预言家。请选择今晚查验的目标。' + (round === 1 ? '首夜没有信息，请随机选择或按位置习惯验。' : '根据之前验人结果推理，不要编造未验证的信息。') + '\n可选：' + targets + '\n输出 JSON：{"seerCheck": "角色ID"}';
+    const r = await callLlm(sys, prompt, sig, seer.providerId, seer.temperature, undefined, seer.model, seer.id, budget);
+    if (r.content) { try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); var sr = target?.secret?.secretRole === 'werewolf' ? '狼人' : '好人'; actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; if (seer.secret && target) { if (!seer.secret.knownSecrets) seer.secret.knownSecrets = []; seer.secret.knownSecrets.push('第' + round + '夜验人：' + target.name + '(' + j.seerCheck + ') 是' + sr); } await pushNightWhisper(rt, seer.id, '🔮 查验结果：' + (target?.name || j.seerCheck) + ' 是 ' + sr, true); } else { await pushNightWhisper(rt, seer.id, '🔮 本夜查验未能完成（未输出目标）。', true); } } catch { await pushNightWhisper(rt, seer.id, '🔮 本夜查验未能完成（输出格式错误）。', true); } }
+    if (seer.secret) seer.secret.nightActionDone = true;
+      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🔮 预言家已完成查验（结果保密）。'));
+  }
+  
+
+const targetId = actions.wolfTarget;
   const guardId = actions.guardTarget;
   const poisonTarget = actions.witchPoison;
   if (targetId && targetId !== guardId) {
@@ -105,6 +100,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   rt.deathLog = [...(rt.deathLog || []), ...actions.deaths];
   rt.lastGuardTarget = actions.guardTarget || rt.lastGuardTarget;
 }
+
 
 async function runRevealPhase(rt: RoundTable, round: number, all: Message[], sig: AbortSignal): Promise<void> {
   const actions = rt.nightActions; if (!actions || actions.deaths.length === 0) return;
@@ -209,14 +205,14 @@ async function runDaySpeech(rt: RoundTable, ch: Character, round: number, all: M
   const parsed = parseCharacterOutput(rawContent);
   const speechContent = parsed ? parsed.speech : rawContent;
   // 关键角色无有效发言时重试一次（基于实际发言内容，非仅 r.error）
-  const hasValidSpeech = speechContent && !speechContent.includes('未能生成发言') && !speechContent.includes('生成失败') && speechContent.trim().length > 3;
-  if (!hasValidSpeech && ch.secret?.secretRole && ['seer', 'guard', 'witch', 'werewolf'].includes(ch.secret.secretRole)) {
+  const hasValidSpeech = speechContent && !speechContent.includes('未能生成发言') && !speechContent.includes('生成失败') && !speechContent.match(/^[。.！!？?]+$/) && speechContent.trim().length > 5;
+  if (!hasValidSpeech && ch.secret?.secretRole && ['seer', 'guard', 'witch', 'hunter', 'werewolf'].includes(ch.secret.secretRole)) {
     const r2 = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
     if (r2.content && !r2.error) {
       const raw2 = r2.content || '';
       const parsed2 = parseCharacterOutput(raw2);
       const speech2 = parsed2 ? parsed2.speech : raw2;
-      if (speech2 && !speech2.includes('未能生成发言') && !speech2.includes('生成失败') && speech2.trim().length > 3) {
+      if (speech2 && !speech2.includes('未能生成发言') && !speech2.includes('生成失败') && !speech2.match(/^[。.！!？?]+$/) && speech2.trim().length > 5) {
         const m2 = buildMsg(rt.id, round, ch.id, ch.name, 'speech', speech2, { provId: ch.providerId, reasoning: r2.reasoning });
         all.push(m2); send('discuss:message', m2);
         if (parsed2?.payload) mergeMemoryUpdate(ch, parsed2.payload);
