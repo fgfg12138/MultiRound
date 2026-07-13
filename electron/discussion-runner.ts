@@ -86,14 +86,14 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   if (targetId && targetId !== guardId) {
     const victim = rt.characters.find((c: any) => c.id === targetId);
     if (victim?.secret && victim.secret.isAlive !== false) {
-      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'wolf-kill';
+      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'wolf-kill'; victim.secret.revealed = true;
       actions.deaths.push({ characterId: targetId, round: round, reason: 'wolf-kill' });
     }
   }
   if (poisonTarget && poisonTarget !== targetId) {
     const victim = rt.characters.find((c: any) => c.id === poisonTarget);
     if (victim?.secret && victim.secret.isAlive !== false) {
-      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'witch-poison';
+      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'witch-poison'; victim.secret.revealed = true;
       actions.deaths.push({ characterId: poisonTarget, round: round, reason: 'witch-poison' });
     }
   }
@@ -106,7 +106,7 @@ async function runRevealPhase(rt: RoundTable, round: number, all: Message[], sig
   const actions = rt.nightActions; if (!actions || actions.deaths.length === 0) return;
   const sys = buildSysPrompt(); const budget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
   const deathNames = actions.deaths.map((d: any) => rt.characters.find((c: any) => c.id === d.characterId)?.name || d.characterId).join('、');
-  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 被杀害了。\n【公布要求】只宣布死亡名单，不透露刀杀/毒杀细节，不透露存活者身份，不分析谁可能是狼，不下裁判结论。请庄重宣布，然后说：请存活角色开始发言。';
+  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 已死亡。死者已翻牌，请公布其身份。\n【公布要求】只宣布死亡名单与身份（如「玩家3（女巫）已死亡」），不透露刀杀/毒杀/救活的细节，不透露存活者身份，不分析谁可能是狼，不下裁判结论。请庄重宣布，然后说：请存活角色开始发言。';
   send('discuss:phase-change', { roundTableId: rt.id, phase: 'reveal', label: '天亮公布' });
   const r = await callLlm(sys, prompt, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
   if (r.content) { const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content); all.push(m); send('discuss:message', m); }
@@ -152,7 +152,7 @@ async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: 
   if (ousted) {
     const eliminated = rt.characters.find((c: any) => c.id === ousted);
     if (eliminated?.secret && eliminated.secret.isAlive !== false) {
-      eliminated.secret.isAlive = false; eliminated.secret.diedAtRound = round; eliminated.secret.diedReason = 'voted-out';
+      eliminated.secret.isAlive = false; eliminated.secret.diedAtRound = round; eliminated.secret.diedReason = 'voted-out'; eliminated.secret.revealed = true;
       rt.deathLog = [...(rt.deathLog || []), { characterId: ousted, round: round, reason: 'voted-out' }];
       const announce = eliminated.name + '（' + (eliminated.secret.revealed ? eliminated.secret.secretRole : '身份未揭') + '）出局。';
       if (rt.host) { const am = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', announce); all.push(am); send('discuss:message', am); }
@@ -165,8 +165,12 @@ function checkWinCondition(rt: RoundTable): { over: boolean; winner?: string } {
   if (aliveChars.length === 0) return { over: true, winner: '平局' };
   const aliveWolves = aliveChars.filter((c: any) => c.secret?.secretRole === 'werewolf');
   const aliveGood = aliveChars.filter((c: any) => c.secret?.secretRole !== 'werewolf');
-  if (aliveWolves.length === 0) return { over: true, winner: '好人阵营' };
-  if (aliveWolves.length >= aliveGood.length) return { over: true, winner: '狼人阵营' };
+  if (aliveWolves.length === 0 || aliveWolves.length >= aliveGood.length) {
+    // 游戏结束，全体翻牌
+    for (const c of rt.characters) if (c.secret) c.secret.revealed = true;
+    if (aliveWolves.length === 0) return { over: true, winner: '好人阵营' };
+    return { over: true, winner: '狼人阵营' };
+  }
   return { over: false };
 }
 
@@ -270,7 +274,7 @@ export async function startDiscussion(rt: RoundTable, startRound = 1): Promise<v
               all.push(buildMsg(rt.id, round, 'host', rt.host.name, 'final_summary', fs.content || '游戏结束', { error: fs.error }));
               send('discuss:message', all[all.length - 1]);
             }
-            if (win.winner) { all.push(buildMsg(rt.id, round, 'host', rt.host.name, 'result', win.winner + '获胜！')); send('discuss:message', all[all.length - 1]); }
+            if (win.winner) { var rl = rt.characters.map((cx:any) => cx.name + '(' + (cx.secret?.secretRole || '未知') + ')').join('、'); all.push(buildMsg(rt.id, round, 'host', rt.host.name, 'result', '全体翻牌：' + rl + '。' + win.winner + '获胜！')); send('discuss:message', all[all.length - 1]); }
             break;
           }
         }
