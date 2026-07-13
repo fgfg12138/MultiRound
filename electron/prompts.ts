@@ -108,11 +108,28 @@ export function buildGoalContext(rt: RoundTable): string {
 }
 
 export function buildPublicGameContext(rt: RoundTable): string {
+  const isWw = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
   const rows = rt.characters.map((c) => {
     const alive = c.secret?.isAlive === false ? '已离场' : '在场';
-    const revealed = c.secret?.revealed ? `已公开隐藏身份：${c.secret.secretRole}` : '隐藏身份：未公开';
-    const publicGoal = c.secret?.publicGoal ? `公开目标：${c.secret.publicGoal}` : '';
-    return `- ${c.name}（${c.role || '未指定身份'}，${alive}，${revealed}${publicGoal ? `，${publicGoal}` : ''}）`;
+    let revealed: string;
+    let roleLine: string;
+    if (isWw) {
+      if (c.secret?.isAlive === false && c.secret?.revealed) {
+        revealed = `已翻牌：${c.role || '未知'}（${c.secret.secretRole}）`;
+      } else if (c.secret?.isAlive === false) {
+        revealed = '已离场（身份未公开）';
+      } else {
+        revealed = '身份未公开';
+      }
+      roleLine = c.name;
+    } else {
+      revealed = c.secret?.revealed ? `已公开隐藏身份：${c.secret.secretRole}` : '隐藏身份：未公开';
+      roleLine = `${c.name}（${c.role || '未指定身份'}）`;
+    }
+    const publicGoal = (!isWw && c.secret?.publicGoal) ? `，公开目标：${c.secret.publicGoal}` : '';
+    return isWw
+      ? `- ${roleLine}（${alive}，${revealed}）`
+      : `- ${roleLine}（${alive}，${revealed}${publicGoal}）`;
   }).join('\n');
   return `【公开信息】\n${buildScenarioContext(rt)}\n${buildGoalContext(rt)}\n\n公开角色列表：\n${rows || '无'}`;
 }
@@ -159,7 +176,7 @@ export function buildCombinedPrompt(rt: RoundTable, c: Character, round: number,
 9. 观点必须分裂：怀疑不同的人
 10. 推理必须独立成链
 11. 文本狼人杀无肢体语言
-12. 忠于人设${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}\n14. 狼人杀术语规则（严格遵守方可用）：悍跳=狼人冒充神职上跳；倒钩=狼人打自己狼队友做身份；冲锋=狼人支持狼同伴带节奏；禁止乱用术语，使用前明确收益\n15. 推理不充分时用概率判断而非断言（如「我判断6真预约40%，8真预约35%」），禁止贴标签式结论`,
+12. 忠于人设${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}\n14. 狼人杀术语规则（严格遵守方可用）：悍跳=狼人冒充神职上跳；倒钩=狼人打自己狼队友做身份；冲锋=狼人支持狼同伴带节奏；禁止乱用术语，使用前明确收益\n15. 推理不充分时用概率判断而非断言（如「我判断6真预约40%，8真预约35%」），禁止贴标签式结论\n16. 严格遵守时间线：夜间行动发生在白天发言之前。白天只能引用上帝已公开宣布的死亡名单与本轮公开发言。禁止引用未公布的夜间细节（谁被刀、是否被救、谁验了谁、守谁）。\n17. 禁止从某角色已离场推断其职业身份或死因。未翻牌身份属于隐藏信息，你无权断言某号是女巫/猎人/预言家。`,
     };
   };
 
@@ -181,7 +198,7 @@ export function buildCombinedPrompt(rt: RoundTable, c: Character, round: number,
 9. 观点必须分裂：不同角色应怀疑不同的人，不许全桌只怀疑一个人。
 10. 推理必须独立成链（验人→怀疑目标→逻辑结论），禁止循环论证。
 11. 文本狼人杀没有眼神/微表情/肢体动作/手势/呼吸，禁止编造这类描写。
-12. 角色性格差异化：你的性格写在人设里，必须忠于人设。${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}\n14. 狼人杀术语规则：悍跳=狼人冒充神职上跳；倒钩=狼人打自己狼队友做身份；冲锋=狼人支持狼同伴带节奏；禁止乱用术语，使用前明确收益\n15. 推理不充分时用概率判断而非断言（如「我判断6真预约40%，8真预约35%」），禁止贴标签式结论`;
+12. 角色性格差异化：你的性格写在人设里，必须忠于人设。${c.constraints ? `\n13. 特别注意：${c.constraints}` : ''}\n14. 狼人杀术语规则：悍跳=狼人冒充神职上跳；倒钩=狼人打自己狼队友做身份；冲锋=狼人支持狼同伴带节奏；禁止乱用术语，使用前明确收益\n15. 推理不充分时用概率判断而非断言（如「我判断6真预约40%，8真预约35%」），禁止贴标签式结论\n16. 严格遵守时间线：夜间行动发生在白天发言之前。白天只能引用上帝已公开宣布的死亡名单与本轮公开发言。禁止引用未公布的夜间细节（谁被刀、是否被救、谁验了谁、守谁）。\n17. 禁止从某角色已离场推断其职业身份或死因。未翻牌身份属于隐藏信息，你无权断言某号是女巫/猎人/预言家。`;
 
   // Whisper injection (same logic as buildCharSpeech)
   let whisperInjection = '';
