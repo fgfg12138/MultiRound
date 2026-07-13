@@ -473,6 +473,7 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
 export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   const tbm = TokenBudgetManager.create(PromptType.HOST_FINAL);
   const rec = all.map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
+  const isWw3 = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
   const cs = rt.characters.map(c => {
     const hideRole = isWw3 && !c.secret?.revealed;
     return hideRole ? `${c.name}—— ${safe(c.stance, '未指定立场')}` : `${c.name}（${c.role}）—— ${safe(c.stance, '未指定立场')}`;
@@ -480,7 +481,6 @@ export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   const gl = buildGoalContext(rt);
   const sc = buildScenarioContext(rt);
   const judge = buildJudgePrivateContext(rt);
-  const isWw3 = rt.gameMode === 'werewolf' || (rt.modules && (rt.modules.nightAction || rt.modules.vote));
   const judge2 = isWw3 ? buildWerewolfJudgeContext(rt) : judge;
 
   const sections = { records: rec, chars: cs, goal: gl, scenario: sc, judgeContext: judge2 || '' };
