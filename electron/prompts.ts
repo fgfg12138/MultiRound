@@ -242,15 +242,7 @@ export function buildWerewolfJudgeContext(rt: RoundTable): string {
   const alive = rt.characters.filter(c => c.secret?.isAlive !== false);
   const dead = rt.characters.filter(c => c.secret?.isAlive === false);
   const pub = '存活：' + alive.map(c=>c.name).join('、') + String.fromCharCode(10) + '已死亡翻牌：' + dead.filter(c=>c.secret?.revealed).map(c=>c.name + '(' + c.secret?.secretRole + ')').join('、') + String.fromCharCode(10) + '历史出局：' + (rt.deathLog||[]).map((d:any)=>'第'+d.round+'轮 '+rt.characters.find((cx:any)=>cx.id===d.characterId)?.name+' 出局('+(d.reason||'未知')+')').join(String.fromCharCode(10)) || '无';
-  const na = rt.nightActions;
-  var scName = '无'; var scResult = '';
-  if (na && na.seerCheck && na.seerCheck.target) {
-    var scChar = rt.characters.find((cx:any)=>cx.id===na.seerCheck!.target);
-    scName = scChar?.name || '未知';
-    scResult = '(' + na.seerCheck!.result + ')';
-  }
-  const naStr = na ? '本轮被刀目标：' + (na.wolfTarget?rt.characters.find((cx:any)=>cx.id===na.wolfTarget)?.name:'无') + '；女巫' + (na.witchHeal?'已救':'未救') + (na.witchPoison?',毒了'+(rt.characters.find((cx:any)=>cx.id===na.witchPoison)?.name||''):'') + '；守卫守' + (na.guardTarget?rt.characters.find((cx:any)=>cx.id===na.guardTarget)?.name:'无') + '；预言家验' + scName + scResult : '尚无夜间行动';
-  return '【主持人职责】你是上帝，只负责流程推进。' + String.fromCharCode(10) + '你能知道的公开信息：' + String.fromCharCode(10) + pub + String.fromCharCode(10) + '夜间行动汇总（仅你知道，不可对外说）：' + naStr + String.fromCharCode(10) + String.fromCharCode(10) + '你绝对不可对外泄露：' + String.fromCharCode(10) + '1. 任何存活角色的隐藏身份、私密目标、已知秘密、阵营归属' + String.fromCharCode(10) + '2. 女巫是否持药、守卫守谁、预言家验了谁、被刀/被救过程' + String.fromCharCode(10) + '3. 对谁是狼、谁是神下裁判结论' + String.fromCharCode(10) + '你的公开发言只能：报死亡名单、推进流程、组织投票、宣布出局与翻牌。';
+  return '【主持人职责】你是上帝，只负责流程推进。' + String.fromCharCode(10) + '你能知道的公开信息：' + String.fromCharCode(10) + pub + String.fromCharCode(10) + String.fromCharCode(10) + '你绝对不可对外泄露：' + String.fromCharCode(10) + '1. 任何存活角色的隐藏身份、私密目标、已知秘密、阵营归属' + String.fromCharCode(10) + '2. 女巫是否持药、守卫守谁、预言家验了谁、被刀/被救过程' + String.fromCharCode(10) + '3. 对谁是狼、谁是神下裁判结论' + String.fromCharCode(10) + '你的公开发言只能：报死亡名单、推进流程、组织投票、宣布出局与翻牌。';
 }
 export function buildCharPersona(c: Character): string {
   const p: string[] = [];
@@ -462,10 +454,6 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
   }
 
   if (isWw) {
-    const wdF = getDataDir(); const wdI = loadIndex(wdF); const wdFn = wdI[rt.id];
-    let nl = '';
-    if (wdFn) { try { const wd = loadWhispers(wdF, wdFn); const na = wd.whispers.filter((w:any) => w.type === 'night-action'); if (na.length) nl = '\n\n【本夜私密行动（仅供你参考）】\n' + na.slice(-10).map((w:any) => (w.senderId === 'host' ? '上帝→' + (rt.characters.find((c:any) => c.id === w.recipientId)?.name || w.recipientId) : rt.characters.find((c:any) => c.id === w.senderId)?.name || w.senderId) + '：' + w.content).join('\n'); } catch {} }
-    return `你是主持人「${rt.host.name}」。第 ${round} 轮白天发言结束。\n\n${gl}\n\n${judge}\n\n本轮发言：\n${finalRm}\n\n总结要求（严格）:\n1. 只陈述本轮公开发言的事实：谁沉默、谁对跳预言家、谁站边、谁被怀疑\n2. 只报双预/单预/沉默/站边分布等中立事实，禁止下任何身份结论\n3. 禁止剧透未翻牌身份、持药状态、守卫守谁、预言家验了谁、狼队关系\n4. 禁止马后炮分析全局、禁止为剧情编造因果\n5. 禁止替玩家下X号就是狼的裁判结论；可列存在两种可能：方案A/方案B\n6. 若启用投票，引出投票环节\n7. 150-250字，纯事实播报，禁止裁判式断言\n8. 可给概率分布而非身份断言（如「6真预约40%，8真预约35%，双狼互踩约10%」），禁止贴标签式结论`;
   }
   return `你是主持人「${rt.host.name}」。\n第 ${round} 轮讨论结束。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}本轮发言：\n${finalRm}\n\n请：\n1. 总结每位角色的核心观点\n2. 指出共识和分歧\n3. 根据发言判断谁更可疑，但绝对不要直接泄露任何角色的隐藏身份、私密目标、已知秘密或阵营归属\n4. 推动角色继续暴露矛盾\n5. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n6. 引出下一轮方向（角色：${cn}）\n\n控制在 200-350 字。保持中立控场，但要有裁判意识。`;
 }
