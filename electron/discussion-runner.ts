@@ -159,7 +159,7 @@ async function runVotePhase(rt: RoundTable, round: number, all: Message[], sig: 
   if (ousted) {
     const eliminated = rt.characters.find((c: any) => c.id === ousted);
     if (eliminated?.secret && eliminated.secret.isAlive !== false) {
-      eliminated.secret.isAlive = false; eliminated.secret.diedAtRound = round; eliminated.secret.diedReason = 'voted-out'; eliminated.secret.revealed = true;
+      eliminated.secret.isAlive = false; eliminated.secret.diedAtRound = round; eliminated.secret.diedReason = 'voted-out';
       rt.deathLog = [...(rt.deathLog || []), { characterId: ousted, round: round, reason: 'voted-out' }];
       const announce = eliminated.name + '（' + (eliminated.secret.revealed ? eliminated.secret.secretRole : '身份未揭') + '）出局。';
       if (rt.host) { const am = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', announce); all.push(am); send('discuss:message', am); }

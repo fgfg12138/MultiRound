@@ -242,7 +242,7 @@ export function buildWerewolfJudgeContext(rt: RoundTable): string {
   const alive = rt.characters.filter(c => c.secret?.isAlive !== false);
   const dead = rt.characters.filter(c => c.secret?.isAlive === false);
   const pub = '存活：' + alive.map(c=>c.name).join('、') + String.fromCharCode(10) + '已死亡翻牌：' + dead.filter(c=>c.secret?.revealed).map(c=>c.name + '(' + c.secret?.secretRole + ')').join('、') + String.fromCharCode(10) + '历史出局：' + (rt.deathLog||[]).map((d:any)=>'第'+d.round+'轮 '+rt.characters.find((cx:any)=>cx.id===d.characterId)?.name+' 出局('+(d.reason||'未知')+')').join(String.fromCharCode(10)) || '无';
-  return '【主持人职责】你是上帝，只负责流程推进。' + String.fromCharCode(10) + '你能知道的公开信息：' + String.fromCharCode(10) + pub + String.fromCharCode(10) + String.fromCharCode(10) + '你绝对不可对外泄露：' + String.fromCharCode(10) + '1. 任何存活角色的隐藏身份、私密目标、已知秘密、阵营归属' + String.fromCharCode(10) + '2. 女巫是否持药、守卫守谁、预言家验了谁、被刀/被救过程' + String.fromCharCode(10) + '3. 对谁是狼、谁是神下裁判结论' + String.fromCharCode(10) + '你的公开发言只能：报死亡名单、推进流程、组织投票、宣布出局与翻牌。';
+  return '【主持人职责】你是上帝，只负责流程推进。' + String.fromCharCode(10) + '你能知道的公开信息：' + String.fromCharCode(10) + pub + String.fromCharCode(10) + String.fromCharCode(10) + '你绝对不可对外泄露：' + String.fromCharCode(10) + '1. 任何存活角色的隐藏身份、私密目标、已知秘密、阵营归属' + String.fromCharCode(10) + '2. 女巫是否持药、守卫守谁、预言家验了谁、被刀/被救过程' + String.fromCharCode(10) + '3. 对谁是狼、谁是神下裁判结论' + String.fromCharCode(10) + '你的公开发言只能：报死亡名单、推进流程、组织投票、宣布出局。';
 }
 export function buildCharPersona(c: Character): string {
   const p: string[] = [];
