@@ -60,7 +60,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     const targets = rt.characters.filter((c: any) => c.id !== seer.id && c.secret?.isAlive !== false).map((c: any) => c.name + '(' + c.id + ')').join('、');
     const prompt = '【信息边界】现在是第' + round + '夜，发生在白天发言之前。你不能引用任何白天才发生的发言或事件。文本狼人杀没有肢体语言。' + '\n' + '你是预言家。请选择今晚查验的目标。' + (round === 1 ? '首夜没有信息，请随机选择或按位置习惯验。' : '根据之前验人结果推理，不要编造未验证的信息。') + '\n可选：' + targets + '\n输出 JSON：{"seerCheck": "角色ID"}';
     const r = await callLlm(sys, prompt, sig, seer.providerId, seer.temperature, undefined, seer.model, seer.id, budget);
-    if (r.content) try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); var sr = target?.secret?.secretRole === 'werewolf' ? '狼人' : '好人'; actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; await pushNightWhisper(rt, seer.id, '🔮 查验结果：' + (target?.name || j.seerCheck) + ' 是 ' + sr, true); } } catch {}
+    if (r.content) try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); var sr = target?.secret?.secretRole === 'werewolf' ? '狼人' : '好人'; actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; if (seer.secret && target) { if (!seer.secret.knownSecrets) seer.secret.knownSecrets = []; seer.secret.knownSecrets.push('第' + round + '夜验人：' + target.name + '(' + j.seerCheck + ') 是' + sr); } await pushNightWhisper(rt, seer.id, '🔮 查验结果：' + (target?.name || j.seerCheck) + ' 是 ' + sr, true); } } catch {}
     if (seer.secret) seer.secret.nightActionDone = true;
       send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🔮 预言家已完成查验（结果保密）。'));
   }
@@ -90,14 +90,14 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
   if (targetId && targetId !== guardId) {
     const victim = rt.characters.find((c: any) => c.id === targetId);
     if (victim?.secret && victim.secret.isAlive !== false) {
-      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'wolf-kill'; victim.secret.revealed = true;
+      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'wolf-kill';
       actions.deaths.push({ characterId: targetId, round: round, reason: 'wolf-kill' });
     }
   }
   if (poisonTarget && poisonTarget !== targetId) {
     const victim = rt.characters.find((c: any) => c.id === poisonTarget);
     if (victim?.secret && victim.secret.isAlive !== false) {
-      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'witch-poison'; victim.secret.revealed = true;
+      victim.secret.isAlive = false; victim.secret.diedAtRound = round; victim.secret.diedReason = 'witch-poison';
       actions.deaths.push({ characterId: poisonTarget, round: round, reason: 'witch-poison' });
     }
   }
@@ -206,6 +206,20 @@ async function runDaySpeech(rt: RoundTable, ch: Character, round: number, all: M
   const combinedPrompt = buildCombinedPrompt(rt, ch, round, all);
   const r = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
   const rawContent = r.content || streamedContent || (r.error ? '（' + ch.name + ' 生成失败: ' + r.error + '）' : '（' + ch.name + ' 未能生成发言）');
+  // 关键角色失败时重试一次
+  if (r.error && ch.secret?.secretRole && ['seer', 'guard', 'witch', 'werewolf'].includes(ch.secret.secretRole)) {
+    const r2 = await callLlm(sys, combinedPrompt, sig, ch.providerId, ch.temperature, onChunk, ch.model, ch.id, speechBudget, onReasoningChunk);
+    if (r2.content && !r2.error) {
+      const raw2 = r2.content || '';
+      const parsed2 = parseCharacterOutput(raw2);
+      const speech2 = parsed2 ? parsed2.speech : raw2;
+      const m2 = buildMsg(rt.id, round, ch.id, ch.name, 'speech', speech2, { provId: ch.providerId, reasoning: r2.reasoning });
+      all.push(m2); send('discuss:message', m2);
+      if (parsed2?.payload) mergeMemoryUpdate(ch, parsed2.payload);
+      if (r2.content || streamedContent) { tokenTracker.record({ characterId: ch.id, round: round, promptType: 'CHAR_SPEECH_COMBINED', inputText: combinedPrompt, outputText: r2.content }); send('discuss:token-update', { roundTableId: rt.id, records: tokenTracker.getAllRecords() }); }
+      return; // 重试成功，跳过原失败逻辑
+    }
+  }
   const parsed = parseCharacterOutput(rawContent);
   const speechContent = parsed ? parsed.speech : rawContent;
   send('discuss:stream-end', { roundTableId: rt.id, characterId: ch.id, characterName: ch.name, content: speechContent, error: r.error });
