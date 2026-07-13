@@ -9,9 +9,10 @@ interface LayoutProps {
   showBack?: boolean;
   backTo?: string;
   actions?: ReactNode;
+  scrollable?: boolean;
 }
 
-export default function Layout({ children, title, showBack, backTo, actions }: LayoutProps) {
+export default function Layout({ children, title, showBack, backTo, actions, scrollable = true }: LayoutProps) {
   const navigate = useNavigate();
 
   const handleBack = () => {
@@ -33,7 +34,7 @@ export default function Layout({ children, title, showBack, backTo, actions }: L
           actions={actions}
           onBack={handleBack}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className={scrollable ? 'flex-1 overflow-y-auto overflow-x-hidden' : 'flex-1 overflow-hidden flex flex-col'}>
           {children}
         </main>
       </div>

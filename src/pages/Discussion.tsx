@@ -157,6 +157,7 @@ export default function Discussion() {
 
   return (
     <Layout
+      scrollable={false}
       title={roundTable.topic}
       showBack
       backTo="/"
