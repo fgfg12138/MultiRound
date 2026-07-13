@@ -445,6 +445,9 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
   }
 
   if (isWw) {
+    const wdF = getDataDir(); const wdI = loadIndex(wdF); const wdFn = wdI[rt.id];
+    let nl = '';
+    if (wdFn) { try { const wd = loadWhispers(wdF, wdFn); const na = wd.whispers.filter((w:any) => w.type === 'night-action'); if (na.length) nl = '\n\n【本夜私密行动（仅供你参考）】\n' + na.slice(-10).map((w:any) => (w.senderId === 'host' ? '上帝→' + (rt.characters.find((c:any) => c.id === w.recipientId)?.name || w.recipientId) : rt.characters.find((c:any) => c.id === w.senderId)?.name || w.senderId) + '：' + w.content).join('\n'); } catch {} }
     return `你是主持人「${rt.host.name}」。第 ${round} 轮白天发言结束。\n\n${gl}\n\n${judge}\n\n本轮发言：\n${finalRm}\n\n总结要求（严格）:\n1. 只陈述本轮公开发言的事实：谁沉默、谁对跳预言家、谁站边、谁被怀疑\n2. 只报双预/单预/沉默/站边分布等中立事实，禁止下任何身份结论\n3. 禁止剧透未翻牌身份、持药状态、守卫守谁、预言家验了谁、狼队关系\n4. 禁止马后炮分析全局、禁止为剧情编造因果\n5. 禁止替玩家下X号就是狼的裁判结论；可列存在两种可能：方案A/方案B\n6. 若启用投票，引出投票环节\n7. 150-250字，纯事实播报，禁止裁判式断言\n8. 可给概率分布而非身份断言（如「6真预约40%，8真预约35%，双狼互踩约10%」），禁止贴标签式结论`;
   }
   return `你是主持人「${rt.host.name}」。\n第 ${round} 轮讨论结束。\n\n${gl}\n\n${judge ? judge + '\n\n' : ''}本轮发言：\n${finalRm}\n\n请：\n1. 总结每位角色的核心观点\n2. 指出共识和分歧\n3. 根据发言判断谁更可疑，但绝对不要直接泄露任何角色的隐藏身份、私密目标、已知秘密或阵营归属\n4. 推动角色继续暴露矛盾\n5. 如果需要投票、淘汰、胜负判断，可以用文本形式裁定\n6. 引出下一轮方向（角色：${cn}）\n\n控制在 200-350 字。保持中立控场，但要有裁判意识。`;
@@ -469,7 +472,10 @@ export function buildHostFinal(rt: RoundTable, all: Message[]): string {
     finalRec = all.slice(-config.recentMsgMaxCount).map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
   }
 
-  return `你是主持人「${rt.host.name}」。\n整场讨论结束。\n\n${sc}\n${gl}\n\n角色：\n${cs}\n\n${judge2 ? judge2 + '\n\n' : ''}完整记录：\n${finalRec}\n\n请撰写总结陈词：\n1. 主题回顾\n2. 每位角色主要观点\n3. 可疑点与矛盾链条\n4. 如果存在欺诈者/隐藏阵营，给出裁判式判断，但不要编造代码里不存在的硬结算\n5. 达成的共识\n6. 仍存分歧\n7. 后续方向\n\n控制在 400-700 字。`;
+  let fullNightLog = '';
+  if (isWw3) {
+    try { const wdF2 = getDataDir(); const wdI2 = loadIndex(wdF2); const wdFn2 = wdI2[rt.id]; if (wdFn2) { const wd2 = loadWhispers(wdF2, wdFn2); const na2 = wd2.whispers.filter((w:any) => w.type === 'night-action'); if (na2.length) fullNightLog = '\n\n【全剧夜间行动记录（仅供你参考）】\n' + na2.map((w:any) => (w.senderId === 'host' ? '上帝→' + (rt.characters.find((c:any) => c.id === w.recipientId)?.name || w.recipientId) : rt.characters.find((c:any) => c.id === w.senderId)?.name || w.senderId) + '：' + w.content).join('\n'); } } catch {} }
+  return `你是主持人「${rt.host.name}」。\n整场讨论结束。\n\n${sc}\n${gl}\n\n角色：\n${cs}\n\n${judge2 ? judge2 + '\n\n' : ''}完整记录：\n${finalRec}${fullNightLog}\n\n请撰写总结陈词：\n1. 主题回顾\n2. 每位角色主要观点\n3. 可疑点与矛盾链条\n4. 如果存在欺诈者/隐藏阵营，给出裁判式判断，但不要编造代码里不存在的硬结算\n5. 达成的共识\n6. 仍存分歧\n7. 后续方向\n\n控制在 400-700 字。`;
 }
 
 export function buildResultPrompt(rt: RoundTable, all: Message[]): string {
