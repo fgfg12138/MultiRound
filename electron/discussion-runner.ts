@@ -52,6 +52,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     const r = await callLlm(sys, prompt, sig, guard.providerId, guard.temperature, undefined, guard.model, guard.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.guardTarget) { actions.guardTarget = j.guardTarget; var gn = rt.characters.find((cx: any) => cx.id === j.guardTarget)?.name || j.guardTarget; pushNightWhisper(rt, guard.id, '✅ 守卫今晚守护了 ' + gn, true); } else pushNightWhisper(rt, guard.id, '⏭ 守卫今夜未行动', true); } catch { pushNightWhisper(rt, guard.id, '⏭ 守卫未响应', true); }
     if (guard.secret) guard.secret.nightActionDone = true;
+      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🛡️ 守卫已选择今晚守护目标（保密）。'));
   }
   const seer = rt.characters.find((c: any) => c.secret?.secretRole === 'seer' && c.secret?.isAlive !== false);
   if (seer) {
@@ -61,6 +62,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     const r = await callLlm(sys, prompt, sig, seer.providerId, seer.temperature, undefined, seer.model, seer.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.seerCheck) { const target = rt.characters.find((c: any) => c.id === j.seerCheck); var sr = target?.secret?.secretRole === 'werewolf' ? '狼人' : '好人'; actions.seerCheck = { target: j.seerCheck, result: target?.secret?.secretRole === 'werewolf' ? 'wolf' : 'good' }; await pushNightWhisper(rt, seer.id, '🔮 查验结果：' + (target?.name || j.seerCheck) + ' 是 ' + sr, true); } } catch {}
     if (seer.secret) seer.secret.nightActionDone = true;
+      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🔮 预言家已完成查验（结果保密）。'));
   }
   const wolves = rt.characters.filter((c: any) => c.secret?.secretRole === 'werewolf' && c.secret?.isAlive !== false);
   if (wolves.length > 0) {
@@ -70,6 +72,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     const r = await callLlm(sys, prompt, sig, wolves[0].providerId, wolves[0].temperature, undefined, wolves[0].model, wolves[0].id, budget);
     if (r.content) try { const j = JSON.parse(r.content); if (j.wolfTarget) { actions.wolfTarget = j.wolfTarget; var wn = rt.characters.find((cx: any) => cx.id === j.wolfTarget)?.name || j.wolfTarget; await pushNightWhisper(rt, wolves[0].id, '🐺 狼人决定今夜杀害 ' + wn, true); } } catch {}
     for (const w of wolves) if (w.secret) w.secret.nightActionDone = true;
+      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🐺 狼人已商定今夜目标（保密）。'));
   }
   const witch = rt.characters.find((c: any) => c.secret?.secretRole === 'witch' && c.secret?.isAlive !== false);
   if (witch && rt.witchPotions?.heal) {
@@ -79,6 +82,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
     const r = await callLlm(sys, prompt, sig, witch.providerId, witch.temperature, undefined, witch.model, witch.id, budget);
     if (r.content) try { const j = JSON.parse(r.content); var wa = ''; if (typeof j.witchHeal === 'boolean') { actions.witchHeal = j.witchHeal; if (j.witchHeal && rt.witchPotions) { rt.witchPotions.heal = false; wa = '救了' + (wolfTargetChar?.name || '被刀者'); } } if (j.witchPoison) { actions.witchPoison = j.witchPoison; if (rt.witchPotions) rt.witchPotions.poison = false; wa += (wa ? '，' : '') + '毒了' + (rt.characters.find((cx: any) => cx.id === j.witchPoison)?.name || j.witchPoison); } await pushNightWhisper(rt, witch.id, wa || '⏭ 女巫按兵不动', true); } catch { await pushNightWhisper(rt, witch.id, '⏭ 女巫未响应', true); }
     if (witch.secret) witch.secret.nightActionDone = true;
+      send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🧪 女巫已做出决定（保密）。'));
   }
   const targetId = actions.wolfTarget;
   const guardId = actions.guardTarget;
