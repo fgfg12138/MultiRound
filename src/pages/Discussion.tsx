@@ -211,7 +211,7 @@ export default function Discussion() {
         </div>
       }
     >
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex h-full overflow-hidden">
         {/* Center - Chat View */}
         <div className="flex-1 flex flex-col overflow-hidden p-5 pl-6 gap-4">
           {/* Chat Header */}
