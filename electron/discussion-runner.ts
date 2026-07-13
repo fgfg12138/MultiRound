@@ -110,7 +110,7 @@ async function runRevealPhase(rt: RoundTable, round: number, all: Message[], sig
   const actions = rt.nightActions; if (!actions || actions.deaths.length === 0) return;
   const sys = buildSysPrompt(); const budget = (rt.rules?.maxSpeechLength || 300) * 6 + 2000;
   const deathNames = actions.deaths.map((d: any) => rt.characters.find((c: any) => c.id === d.characterId)?.name || d.characterId).join('、');
-  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 已死亡。死者已翻牌，请公布其身份。\n【公布要求】只宣布死亡名单与身份（如「玩家3（女巫）已死亡」），不透露刀杀/毒杀/救活的细节，不透露存活者身份，不分析谁可能是狼，不下裁判结论。请庄重宣布，然后说：请存活角色开始发言。';
+  const prompt = '天亮了。公布昨晚结果：' + deathNames + ' 已死亡。\n【公布要求】只宣布死亡名单（如「玩家3已死亡」），不公布死者身份（全程不翻牌），不透露刀杀/毒杀/救活的细节，不透露存活者身份，不分析谁可能是狼，不下裁判结论。请庄重宣布，然后说：请存活角色开始发言。';
   send('discuss:phase-change', { roundTableId: rt.id, phase: 'reveal', label: '天亮公布' });
   const r = await callLlm(sys, prompt, sig, rt.host.providerId, rt.host.temperature, undefined, rt.host.model, 'host', budget);
   if (r.content) { const m = buildMsg(rt.id, round, 'host', rt.host.name, 'summary', r.content); all.push(m); send('discuss:message', m); }
