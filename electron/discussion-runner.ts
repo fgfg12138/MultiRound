@@ -75,7 +75,7 @@ async function runNightPhase(rt: RoundTable, round: number, all: Message[], sig:
       send('discuss:message', buildMsg(rt.id, round, 'host', rt.host.name, 'summary', '🐺 狼人已商定今夜目标（保密）。'));
   }
   const witch = rt.characters.find((c: any) => c.secret?.secretRole === 'witch' && c.secret?.isAlive !== false);
-  if (witch && rt.witchPotions?.heal) {
+  if (witch && (rt.witchPotions?.heal || rt.witchPotions?.poison)) {
     send('discuss:phase-change', { roundTableId: rt.id, phase: 'night', label: '女巫行动' });
     const wolfTargetChar = actions.wolfTarget ? rt.characters.find((c: any) => c.id === actions.wolfTarget) : undefined;
     const prompt = '【信息边界】现在是第' + round + '夜。\n' + (wolfTargetChar ? '你闻到了' + wolfTargetChar.name + '被袭的气味。' : '一切平静。') + '\n你还有' + (rt.witchPotions?.heal ? '解药' : '') + (rt.witchPotions?.heal && rt.witchPotions?.poison ? '和' : '') + (rt.witchPotions?.poison ? '毒药' : '') + '。\n' + (wolfTargetChar ? '是否用解药救' + wolfTargetChar.name + '？' : '') + '\n注意：你不知道守卫守了谁，也不知道预言家验了谁。\n输出 JSON：{"witchHeal": true/false, "witchPoison": ""}';
