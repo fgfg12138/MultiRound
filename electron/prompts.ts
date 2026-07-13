@@ -473,7 +473,10 @@ export function buildHostSum(rt: RoundTable, round: number, msgs: Message[]): st
 export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   const tbm = TokenBudgetManager.create(PromptType.HOST_FINAL);
   const rec = all.map(m => `【${m.characterName} 第${m.round}轮】\n${m.content}`).join('\n\n');
-  const cs = rt.characters.map(c => `${c.name}（${c.role}）—— ${safe(c.stance, '未指定立场')}`).join('\n');
+  const cs = rt.characters.map(c => {
+    const hideRole = isWw3 && !c.secret?.revealed;
+    return hideRole ? `${c.name}—— ${safe(c.stance, '未指定立场')}` : `${c.name}（${c.role}）—— ${safe(c.stance, '未指定立场')}`;
+  }).join('\n');
   const gl = buildGoalContext(rt);
   const sc = buildScenarioContext(rt);
   const judge = buildJudgePrivateContext(rt);
@@ -492,6 +495,9 @@ export function buildHostFinal(rt: RoundTable, all: Message[]): string {
   let fullNightLog = '';
   if (isWw3) {
     try { const wdF2 = getDataDir(); const wdI2 = loadIndex(wdF2); const wdFn2 = wdI2[rt.id]; if (wdFn2) { const wd2 = loadWhispers(wdF2, wdFn2); const na2 = wd2.whispers.filter((w:any) => w.type === 'night-action'); if (na2.length) fullNightLog = '\n\n【全剧夜间行动记录（仅供你参考）】\n' + na2.map((w:any) => (w.senderId === 'host' ? '上帝→' + (rt.characters.find((c:any) => c.id === w.recipientId)?.name || w.recipientId) : rt.characters.find((c:any) => c.id === w.senderId)?.name || w.senderId) + '：' + w.content).join('\n'); } } catch {} }
+  if (isWw3) {
+    return `你是主持人「${rt.host.name}」。\n整场游戏结束。\n\n${sc}\n${gl}\n\n角色（已翻牌的可公布身份）：\n${cs}\n\n${judge2 ? judge2 + '\n\n' : ''}完整记录：\n${finalRec}${fullNightLog}\n\n请撰写总结陈词：\n1. 主题回顾\n2. 每位角色主要观点（仅基于公开发言与已翻牌身份，未翻牌者不强行断言）\n3. 可疑点与矛盾链条（基于发言与票型分析，不为剧情编造因果）\n4. 胜负与格局（已翻牌身份可公布，禁马后炮全知叙事）\n5. 达成的共识\n6. 仍存分歧\n7. 后续方向\n8. 禁止用悍跳/冲锋/倒钩等词对未翻牌者下身份定义；可给概率分布\n\n控制在 400-700 字。`;
+  }
   return `你是主持人「${rt.host.name}」。\n整场讨论结束。\n\n${sc}\n${gl}\n\n角色：\n${cs}\n\n${judge2 ? judge2 + '\n\n' : ''}完整记录：\n${finalRec}${fullNightLog}\n\n请撰写总结陈词：\n1. 主题回顾\n2. 每位角色主要观点\n3. 可疑点与矛盾链条\n4. 如果存在欺诈者/隐藏阵营，给出裁判式判断，但不要编造代码里不存在的硬结算\n5. 达成的共识\n6. 仍存分歧\n7. 后续方向\n\n控制在 400-700 字。`;
 }
 
